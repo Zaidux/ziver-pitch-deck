@@ -2,15 +2,15 @@
   "name": "ziver-pitch-deck",
   "version": "1.0.0",
   "description": "Interactive pitch deck for Ziver",
-  "main": "src/js/script.js",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build": "echo 'No build process needed for static site'"
+    "build": "npm install"
   },
   "keywords": ["pitch-deck", "ziver", "depin", "ai", "finance"],
   "author": "Zaidu",
   "license": "MIT",
-  "devDependencies": {
+  "dependencies": {
     "express": "^4.18.2"
   }
 }
