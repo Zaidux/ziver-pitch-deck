@@ -1,1 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ziver Pitch Deck</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Slide Navigation -->
+        <div class="slide-nav" id="slideNav">
+            <div class="slide-nav-item active" data-slide="0">Title Slide</div>
+            <div class="slide-nav-item" data-slide="1">The Problem</div>
+            <div class="slide-nav-item" data-slide="2">Our Vision & Solution</div>
+            <div class="slide-nav-item" data-slide="3">Core Technology I: ZAIE</div>
+            <div class="slide-nav-item" data-slide="4">Core Technology II: SEB-DeFi</div>
+            <div class="slide-nav-item" data-slide="5">The Ziver Flywheel</div>
+            <div class="slide-nav-item" data-slide="6">Product & Traction</div>
+            <div class="slide-nav-item" data-slide="7">Zenith Protocol</div>
+            <div class="slide-nav-item" data-slide="8">Market Opportunity</div>
+            <div class="slide-nav-item" data-slide="9">Why We Stand Out</div>
+            <div class="slide-nav-item" data-slide="10">Roadmap</div>
+            <div class="slide-nav-item" data-slide="11">The Team</div>
+            <div class="slide-nav-item" data-slide="12">The Ask & Conclusion</div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <div class="logo">ZIVER</div>
+                <div class="controls">
+                    <button class="btn btn-outline" id="editToggle">
+                        <i>✏️</i> Edit Mode
+                    </button>
+                    <button class="btn btn-primary" id="exportBtn">
+                        <i>📥</i> Export Deck
+                    </button>
+                </div>
+            </div>
+            
+            <div class="slides-container">
+                <!-- Slides will be dynamically inserted by JavaScript -->
+            </div>
+            
+            <div class="nav-arrows">
+                <div class="nav-arrow" id="prevSlide">←</div>
+                <div class="nav-arrow" id="nextSlide">→</div>
+            </div>
+        </div>
+        
+        <div class="toggle-nav" id="toggleNav">☰</div>
+    </div>
+    
+    <!-- Export Modal -->
+    <div class="modal" id="exportModal">
+        <div class="modal-content">
+            <h3>Export Options</h3>
+            <div class="export-options">
+                <div class="export-option" data-format="pdf">
+                    <span>📄</span> Export to PDF
+                </div>
+                <div class="export-option" data-format="png">
+                    <span>🖼️</span> Export to PNG
+                </div>
+                <div class="export-option" data-format="pptx">
+                    <span>📊</span> Export to PowerPoint
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <script src="/js/script.js"></script>
+</body>
+</html>
