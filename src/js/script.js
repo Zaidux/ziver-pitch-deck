@@ -14,67 +14,41 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentSlide = 0;
     let editMode = false;
     
-    // Slide data
-    const slidesData = [
-        {
-            type: 'title',
-            title: 'Ziver: A New Era of DePIN & Social-Backed Finance',
-            subtitle: 'AI That Understands, Finance That Rewards Trust',
-            tagline: 'Powering a new economy where reputation is the new currency.',
-            presenter: 'Presenter: Zaidu, Founder of Ziver'
-        },
-        {
-            title: 'The Problem',
-            visual: 'Split screen: AI black box vs. unrewarded engagement',
-            sections: [
-                {
-                    title: 'The AI Hallucination & Reasoning Gap',
-                    content: 'AI is often a "black box," and we can\'t trust its reasoning. It hallucinates, and there\'s no way to verify its logic.'
-                },
-                {
-                    title: 'The Crypto Engagement Paradox',
-                    content: 'While there\'s immense value in crypto, genuine, high-quality user engagement is rarely rewarded in a meaningful, transparent way.'
-                }
-            ]
-        },
-        // Add all other slides following this pattern
-        // For brevity, I'm showing just the first two slides
-    ];
-    
     // Initialize slides
     function initSlides() {
+        // Clear existing slides
         slidesContainer.innerHTML = '';
         
-        slidesData.forEach((slideData, index) => {
+        // Create all slides
+        for (let i = 0; i < 13; i++) {
             const slide = document.createElement('div');
             slide.className = 'slide';
-            slide.dataset.slide = index;
+            slide.dataset.slide = i;
             
-            if (slideData.type === 'title') {
+            // Add content based on slide number
+            if (i === 0) {
                 slide.classList.add('title-slide');
                 slide.innerHTML = `
                     <div class="slide-content">
-                        <h1 contenteditable="false">${slideData.title}</h1>
-                        <h2 contenteditable="false">${slideData.subtitle}</h2>
-                        <p contenteditable="false">${slideData.tagline}</p>
-                        <p contenteditable="false">${slideData.presenter}</p>
+                        <h1 contenteditable="false">Ziver: A New Era of DePIN & Social-Backed Finance</h1>
+                        <h2 contenteditable="false">AI That Understands, Finance That Rewards Trust</h2>
+                        <p contenteditable="false">Powering a new economy where reputation is the new currency.</p>
+                        <p contenteditable="false">Presenter: Zaidu, Founder of Ziver</p>
                     </div>
                 `;
             } else {
+                // Add content for other slides
                 slide.innerHTML = `
                     <div class="slide-content">
-                        <h2 contenteditable="false">${slideData.title}</h2>
-                        <div class="visual-placeholder">${slideData.visual}</div>
-                        ${slideData.sections.map(section => `
-                            <h3 contenteditable="false">${section.title}</h3>
-                            <p contenteditable="false">${section.content}</p>
-                        `).join('')}
+                        <h2 contenteditable="false">Slide ${i+1} Title</h2>
+                        <div class="visual-placeholder">Visual content for slide ${i+1}</div>
+                        <p contenteditable="false">Content for slide ${i+1} will go here.</p>
                     </div>
                 `;
             }
             
             slidesContainer.appendChild(slide);
-        });
+        }
         
         // Activate first slide
         document.querySelector('.slide').classList.add('active');
@@ -101,6 +75,9 @@ document.addEventListener('DOMContentLoaded', function() {
         navItems[index].classList.add('active');
         
         currentSlide = index;
+        
+        // Update URL hash
+        window.location.hash = `slide-${index + 1}`;
     }
     
     // Navigation items click
@@ -125,8 +102,37 @@ document.addEventListener('DOMContentLoaded', function() {
             goToSlide(currentSlide - 1);
         } else if (e.key === 'ArrowRight') {
             goToSlide(currentSlide + 1);
+        } else if (e.key === 'Escape') {
+            exportModal.classList.remove('active');
         }
     });
+    
+    // Swipe support for mobile
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    document.addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, false);
+    
+    document.addEventListener('touchend', e => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, false);
+    
+    function handleSwipe() {
+        const swipeThreshold = 50;
+        
+        if (touchEndX < touchStartX - swipeThreshold) {
+            // Swipe left - next slide
+            goToSlide(currentSlide + 1);
+        }
+        
+        if (touchEndX > touchStartX + swipeThreshold) {
+            // Swipe right - previous slide
+            goToSlide(currentSlide - 1);
+        }
+    }
     
     // Export functionality
     exportBtn.addEventListener('click', () => {
@@ -193,15 +199,32 @@ document.addEventListener('DOMContentLoaded', function() {
         editableElements.forEach(el => {
             el.contentEditable = editMode;
             if (editMode) {
-                el.style.borderBottom = '2px dashed var(--accent)';
+                el.style.borderBottom = '2px dashed var(--cyber-green)';
                 el.style.padding = '5px';
                 el.style.borderRadius = '4px';
+                el.style.background = 'rgba(0, 255, 65, 0.05)';
             } else {
                 el.style.borderBottom = 'none';
                 el.style.padding = '0';
+                el.style.background = 'transparent';
             }
         });
         
-        editToggle.textContent = editMode ? '✏️ Save Changes' : '✏️ Edit Mode';
+        editToggle.textContent = editMode ? '💾 Save Changes' : '✏️ Edit Mode';
+        editToggle.classList.toggle('glow-text', editMode);
     });
+    
+    // Check URL for slide parameter
+    function checkUrlForSlide() {
+        const hash = window.location.hash;
+        if (hash) {
+            const slideNum = parseInt(hash.replace('#slide-', ''));
+            if (!isNaN(slideNum) && slideNum >= 1 && slideNum <= slides.length) {
+                goToSlide(slideNum - 1);
+            }
+        }
+    }
+    
+    // Initialize based on URL
+    checkUrlForSlide();
 });
