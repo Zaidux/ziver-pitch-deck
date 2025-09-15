@@ -1,1 +1,10 @@
-
+services:
+  - type: web
+    name: ziver-pitch-deck
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+    staticPublishPath: ./public
