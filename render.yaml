@@ -7,4 +7,3 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-    staticPublishPath: ./public
