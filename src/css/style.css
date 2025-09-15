@@ -479,5 +479,74 @@ body {
     animation: glow 2s infinite;
 }
 
+/* Fix content overflow */
+.slide-content {
+    max-width: 1000px;
+    margin: 0 auto;
+    height: auto;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px 20px;
+    overflow-y: auto;
+}
+
+/* Better spacing for content */
+.slide {
+    padding: 20px;
+}
+
+/* Better text sizing for long content */
+.slide p, .slide ul {
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin-bottom: 1.2rem;
+}
+
+/* Adjust title sizes */
+.slide h2 {
+    font-size: 2.2rem;
+    margin-bottom: 1.2rem;
+}
+
+.slide h3 {
+    font-size: 1.6rem;
+    margin-bottom: 0.8rem;
+}
+
+/* Better visual placeholder */
+.visual-placeholder {
+    min-height: 200px;
+    height: auto;
+    padding: 20px;
+    margin: 15px 0;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .slide-content {
+        padding: 20px 15px;
+        justify-content: flex-start;
+    }
+    
+    .slide h2 {
+        font-size: 1.8rem;
+    }
+    
+    .slide h3 {
+        font-size: 1.4rem;
+    }
+    
+    .slide p, .slide ul {
+        font-size: 1rem;
+    }
+    
+    .visual-placeholder {
+        min-height: 150px;
+        padding: 15px;
+    }
+}
+
 /* Add Orbitron font */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&display=swap');
