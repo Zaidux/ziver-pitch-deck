@@ -7,10 +7,16 @@
     "start": "node server.js",
     "build": "npm install"
   },
-  "keywords": ["pitch-deck", "ziver", "depin", "ai", "finance"],
+  "keywords": [
+    "pitch-deck",
+    "ziver",
+    "depin",
+    "ai",
+    "finance"
+  ],
   "author": "Zaidu",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.21.2"
   }
 }
