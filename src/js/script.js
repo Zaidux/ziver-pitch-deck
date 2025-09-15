@@ -40,17 +40,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 let contentHTML = '';
                 
                 slideData.sections.forEach(section => {
-                    if (section.list) {
+                    if (section.list && section.list.length > 0) {
                         contentHTML += `
                             <h3 contenteditable="false">${section.title}</h3>
                             <ul>
                                 ${section.list.map(item => `<li contenteditable="false">${item}</li>`).join('')}
                             </ul>
                         `;
-                    } else {
+                    } else if (section.content) {
                         contentHTML += `
                             <h3 contenteditable="false">${section.title}</h3>
                             <p contenteditable="false">${section.content}</p>
+                        `;
+                    } else {
+                        contentHTML += `
+                            <h3 contenteditable="false">${section.title}</h3>
                         `;
                     }
                 });
@@ -97,6 +101,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Update URL hash
         window.location.hash = `slide-${index + 1}`;
+        
+        console.log(`Navigated to slide ${index + 1}`);
     }
 
     // Initialize the slides
@@ -238,7 +244,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         editToggle.textContent = editMode ? '💾 Save Changes' : '✏️ Edit Mode';
-        editToggle.classList.toggle('glow-text', editMode);
+        if (editToggle.classList) {
+            editToggle.classList.toggle('glow-text', editMode);
+        }
     });
 
     // Check URL for slide parameter
@@ -254,4 +262,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize based on URL
     checkUrlForSlide();
+    
+    // Debugging: Log when script is loaded
+    console.log('Script loaded successfully');
+    console.log(`Total slides: ${slides.length}`);
 });
