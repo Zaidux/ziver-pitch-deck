@@ -7,14 +7,8 @@ const port = process.env.PORT || 3000;
 // Serve static files from the public directory
 app.use(express.static('public'));
 
-// Serve CSS from src directory
-app.use('/css', express.static(path.join(__dirname, 'src/css')));
-
-// Serve JS from src directory
-app.use('/js', express.static(path.join(__dirname, 'src/js')));
-
-// Serve images from public directory
-app.use('/images', express.static(path.join(__dirname, 'public/images')));
+// Serve static files from the src directory
+app.use('/src', express.static('src'));
 
 // All routes serve the main HTML file
 app.get('*', (req, res) => {
