@@ -548,5 +548,49 @@ body {
     }
 }
 
+/* PDF export styles */
+@media print {
+    .slide {
+        display: block !important;
+        position: relative !important;
+        opacity: 1 !important;
+        transform: none !important;
+        page-break-after: always;
+        height: auto !important;
+    }
+    
+    .slide-nav,
+    .header,
+    .nav-arrows,
+    .toggle-nav {
+        display: none !important;
+    }
+    
+    .slide-content {
+        height: auto !important;
+        padding: 20px !important;
+    }
+    
+    .visual-placeholder {
+        height: 200px !important;
+    }
+}
+
+/* Temporary styles for PDF export */
+.pdf-export-mode .slide {
+    display: block !important;
+    position: relative !important;
+    opacity: 1 !important;
+    transform: none !important;
+    height: auto !important;
+}
+
+.pdf-export-mode .slide-nav,
+.pdf-export-mode .header,
+.pdf-export-mode .nav-arrows,
+.pdf-export-mode .toggle-nav {
+    display: none !important;
+}
+
 /* Add Orbitron font */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&display=swap');
