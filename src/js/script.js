@@ -1,4 +1,4 @@
-// js/script.js - UPDATED WITH AUTO-SAVE AND + BUTTONS
+// js/script.js - UPDATED WITH FILE UPLOAD
 document.addEventListener('DOMContentLoaded', function() {
     // Elements
     const slideNav = document.getElementById('slideNav');
@@ -37,13 +37,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (dbSlides.length > 0) {
                         slidesData = dbSlides.map(slide => slide.content || slide);
                     } else {
-                        // Initialize with default content if database is empty
+                        // Use default content if database is empty
                         slidesData = window.slidesData || [];
-                        await fetch('/api/slides/initialize', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ slidesData })
-                        });
                     }
                 }
             } catch (error) {
@@ -74,7 +69,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const slide = document.createElement('div');
         slide.className = 'slide';
         slide.dataset.slide = index;
-        slide.dataset.slideId = slideData.id || index;
+        slide.dataset.slideOrder = index;
 
         if (slideData.type === 'title') {
             slide.classList.add('title-slide');
@@ -120,9 +115,12 @@ document.addEventListener('DOMContentLoaded', function() {
             slide.innerHTML = `
                 <div class="slide-content">
                     <h2 contenteditable="false">${slideData.title}</h2>
-                    <div class="visual-placeholder ${hasImage ? 'has-image' : ''}" data-slide-index="${index}">
+                    <div class="visual-placeholder ${hasImage ? 'has-image' : ''}" data-slide-order="${index}">
                         ${visualContent}
-                        <div class="image-upload-btn" data-slide-index="${index}">+</div>
+                        <div class="image-upload-btn" data-slide-order="${index}">
+                            <span>+</span>
+                            <input type="file" accept="image/*" style="display: none;">
+                        </div>
                     </div>
                     ${contentHTML}
                 </div>
@@ -207,7 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!slide) return;
 
         try {
-            const slideId = slide.dataset.slideId || currentIndex;
+            const slideOrder = slide.dataset.slideOrder || currentIndex;
             const title = slide.querySelector('h2')?.textContent || slide.querySelector('h1')?.textContent || '';
             
             // Extract content based on slide type
@@ -246,7 +244,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 };
             }
 
-            const response = await fetch(`/api/slides/${slideId}`, {
+            const response = await fetch(`/api/slides/${slideOrder}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -257,10 +255,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
 
-            if (response.ok) {
-                console.log('Slide content saved');
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('Slide content saved successfully');
             } else {
-                console.error('Failed to save slide content');
+                console.error('Failed to save slide content:', result.error);
             }
         } catch (error) {
             console.error('Error saving slide:', error);
@@ -269,27 +269,63 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Setup image upload buttons
     function setupImageUpload() {
-        document.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('image-upload-btn')) {
-                const slideIndex = e.target.dataset.slideIndex;
-                await showImageUploadForSlide(slideIndex);
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('image-upload-btn') || e.target.closest('.image-upload-btn')) {
+                const uploadBtn = e.target.classList.contains('image-upload-btn') ? e.target : e.target.closest('.image-upload-btn');
+                const fileInput = uploadBtn.querySelector('input[type="file"]');
+                fileInput?.click();
+            }
+        });
+
+        // Handle file selection
+        document.addEventListener('change', async (e) => {
+            if (e.target.type === 'file' && e.target.files.length > 0) {
+                const file = e.target.files[0];
+                const slideOrder = e.target.closest('.image-upload-btn')?.dataset.slideOrder;
+                
+                if (slideOrder !== undefined && file) {
+                    await uploadImageForSlide(slideOrder, file);
+                }
+                
+                // Reset file input
+                e.target.value = '';
             }
         });
     }
 
-    async function showImageUploadForSlide(slideIndex) {
-        const imageUrl = prompt('Enter image URL:');
-        if (imageUrl && imageUrl.trim()) {
-            await saveImageForSlide(slideIndex, imageUrl.trim());
+    async function uploadImageForSlide(slideOrder, file) {
+        const loadingIndicator = createLoadingIndicator('Uploading image...');
+        document.body.appendChild(loadingIndicator);
+
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const response = await fetch('/api/upload/image', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                await saveImageForSlide(slideOrder, result.imageUrl);
+            } else {
+                alert('File upload failed: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            alert('Upload failed: ' + error.message);
+        } finally {
+            if (loadingIndicator && document.body.contains(loadingIndicator)) {
+                document.body.removeChild(loadingIndicator);
+            }
         }
     }
 
-    async function saveImageForSlide(slideIndex, imageUrl) {
+    async function saveImageForSlide(slideOrder, imageUrl) {
         try {
-            const slide = slides[slideIndex];
-            const slideId = slide.dataset.slideId || slideIndex;
-
-            const response = await fetch(`/api/slides/${slideId}/image`, {
+            const response = await fetch(`/api/slides/${slideOrder}/image`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -299,23 +335,45 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
 
-            if (response.ok) {
+            const result = await response.json();
+
+            if (result.success) {
                 // Update the visual placeholder
+                const slide = slides[slideOrder];
                 const visualPlaceholder = slide.querySelector('.visual-placeholder');
                 visualPlaceholder.classList.add('has-image');
                 visualPlaceholder.innerHTML = `
                     <img src="${imageUrl}" alt="Slide image" style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-lg);">
-                    <div class="image-upload-btn" data-slide-index="${slideIndex}">+</div>
+                    <div class="image-upload-btn" data-slide-order="${slideOrder}">
+                        <span>+</span>
+                        <input type="file" accept="image/*" style="display: none;">
+                    </div>
                 `;
                 
-                alert('Image saved successfully!');
+                console.log('Image saved successfully');
             } else {
-                alert('Failed to save image');
+                alert('Failed to save image: ' + (result.error || 'Unknown error'));
             }
         } catch (error) {
             console.error('Error saving image:', error);
-            alert('Error saving image');
+            alert('Error saving image: ' + error.message);
         }
+    }
+
+    function createLoadingIndicator(text) {
+        const indicator = document.createElement('div');
+        indicator.style.cssText = `
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(10, 10, 10, 0.95); color: #00e676; padding: 20px 30px;
+            border-radius: 12px; z-index: 10000; border: 1px solid #00e676;
+            font-family: Inter, sans-serif; font-weight: 600; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            display: flex; align-items: center; gap: 12px;
+        `;
+        indicator.innerHTML = `
+            <div style="width: 24px; height: 24px; border: 3px solid #00e676; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite;"></div>
+            <span>${text}</span>
+        `;
+        return indicator;
     }
 
     // Initialize the slides
@@ -323,6 +381,7 @@ document.addEventListener('DOMContentLoaded', function() {
         setupImageUpload();
     });
 
+    // ... rest of your existing code (navigation, export, etc.) remains the same ...
     // Toggle navigation
     if (toggleNav) {
         toggleNav.addEventListener('click', () => {
