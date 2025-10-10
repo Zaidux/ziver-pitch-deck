@@ -1,4 +1,4 @@
-// js/pdf-export.js - SIMPLIFIED WORKING VERSION
+// js/pdf-export.js - FIXED COORDINATES ISSUE
 class PDFExporter {
     constructor() {
         console.log('PDFExporter initializing...');
@@ -70,8 +70,8 @@ class PDFExporter {
         console.log('Starting PDF export...');
         
         // Check if jsPDF is available
-        if (typeof jspdf === 'undefined') {
-            alert('PDF library loading... Please wait and try again.');
+        if (typeof jspdf === 'undefined' || !window.jspdf) {
+            alert('PDF library not loaded properly. Please refresh the page and try again.');
             return;
         }
 
@@ -105,73 +105,135 @@ class PDFExporter {
                 
                 const slide = slides[i];
                 
-                // Make slide temporarily visible
-                const originalDisplay = slide.style.display;
-                const originalOpacity = slide.style.opacity;
-                const originalTransform = slide.style.transform;
+                // Store original state
+                const originalState = {
+                    display: slide.style.display,
+                    opacity: slide.style.opacity,
+                    transform: slide.style.transform,
+                    position: slide.style.position,
+                    zIndex: slide.style.zIndex,
+                    left: slide.style.left,
+                    top: slide.style.top,
+                    width: slide.style.width,
+                    height: slide.style.height,
+                    background: slide.style.background
+                };
                 
-                slide.style.display = 'block';
-                slide.style.opacity = '1';
-                slide.style.transform = 'translateX(0)';
-                slide.style.position = 'fixed';
-                slide.style.left = '0';
-                slide.style.top = '0';
-                slide.style.zIndex = '9999';
-                slide.style.width = '100vw';
-                slide.style.height = '100vh';
-                slide.style.background = '#0a0a0a';
-
-                // Wait for render
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                const canvas = await html2canvas(slide, {
-                    scale: 1.5,
-                    useCORS: true,
-                    backgroundColor: '#0a0a0a',
-                    logging: true,
-                    width: slide.scrollWidth,
-                    height: slide.scrollHeight,
-                    windowWidth: slide.scrollWidth,
-                    windowHeight: slide.scrollHeight
+                // Make slide temporarily visible for capture
+                Object.assign(slide.style, {
+                    display: 'block',
+                    opacity: '1',
+                    transform: 'translateX(0)',
+                    position: 'fixed',
+                    left: '0',
+                    top: '0',
+                    zIndex: '9999',
+                    width: '100vw',
+                    height: '100vh',
+                    background: '#0a0a0a'
                 });
 
-                const imgData = canvas.toDataURL('image/jpeg', 0.9);
+                // Wait for render and ensure DOM updates
+                await new Promise(resolve => {
+                    setTimeout(resolve, 300);
+                    slide.offsetHeight; // Force reflow
+                });
+
+                let canvas;
+                try {
+                    canvas = await html2canvas(slide, {
+                        scale: 1.2, // Slightly lower scale for stability
+                        useCORS: true,
+                        backgroundColor: '#0a0a0a',
+                        logging: true,
+                        width: slide.scrollWidth,
+                        height: slide.scrollHeight,
+                        windowWidth: slide.scrollWidth,
+                        windowHeight: slide.scrollHeight,
+                        onclone: (clonedDoc, element) => {
+                            // Ensure styles are preserved in clone
+                            const clonedSlide = clonedDoc.querySelector('.slide[data-slide="' + i + '"]');
+                            if (clonedSlide) {
+                                clonedSlide.style.width = '100%';
+                                clonedSlide.style.height = '100%';
+                                clonedSlide.style.background = '#0a0a0a';
+                            }
+                        }
+                    });
+                } catch (canvasError) {
+                    console.error('Canvas capture error:', canvasError);
+                    throw new Error('Failed to capture slide ' + (i + 1));
+                }
+
+                // Validate canvas
+                if (!canvas || canvas.width === 0 || canvas.height === 0) {
+                    throw new Error('Empty canvas generated for slide ' + (i + 1));
+                }
+
+                const imgData = canvas.toDataURL('image/jpeg', 0.85);
 
                 // Add page if not first slide
                 if (i > 0) {
                     pdf.addPage();
                 }
 
-                // Calculate dimensions
+                // Calculate dimensions with safety checks
                 const imgWidth = canvas.width;
                 const imgHeight = canvas.height;
+                
+                if (imgWidth <= 0 || imgHeight <= 0) {
+                    throw new Error('Invalid image dimensions for slide ' + (i + 1));
+                }
+
                 const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
                 const imgWidthPdf = imgWidth * ratio;
                 const imgHeightPdf = imgHeight * ratio;
-                const x = (pageWidth - imgWidthPdf) / 2;
-                const y = (pageHeight - imgHeightPdf) / 2;
+                
+                // Ensure coordinates are valid numbers
+                const x = Math.max(0, (pageWidth - imgWidthPdf) / 2);
+                const y = Math.max(0, (pageHeight - imgHeightPdf) / 2);
 
-                // Add to PDF
-                pdf.addImage(imgData, 'JPEG', x, y, imgWidthPdf, imgHeightPdf);
+                // Validate coordinates before adding to PDF
+                if (isNaN(x) || isNaN(y) || isNaN(imgWidthPdf) || isNaN(imgHeightPdf)) {
+                    throw new Error('Invalid coordinates calculated for PDF');
+                }
 
-                // Restore slide
-                slide.style.display = originalDisplay;
-                slide.style.opacity = originalOpacity;
-                slide.style.transform = originalTransform;
-                slide.style.position = '';
-                slide.style.zIndex = '';
-                slide.style.background = '';
+                console.log(`Adding slide ${i + 1} to PDF:`, { x, y, width: imgWidthPdf, height: imgHeightPdf });
+
+                // Add to PDF with error handling
+                try {
+                    pdf.addImage(imgData, 'JPEG', x, y, imgWidthPdf, imgHeightPdf);
+                } catch (pdfError) {
+                    console.error('PDF addImage error:', pdfError);
+                    throw new Error('Failed to add slide ' + (i + 1) + ' to PDF');
+                }
+
+                // Restore slide to original state
+                Object.assign(slide.style, originalState);
             }
 
             // Save PDF
-            pdf.save('ziver-pitch-deck.pdf');
-            console.log('PDF export completed');
+            pdf.save('ziver-pitch-deck-' + new Date().getTime() + '.pdf');
+            console.log('PDF export completed successfully');
 
         } catch (error) {
             console.error('PDF export error:', error);
-            alert('PDF export failed: ' + error.message);
+            alert('PDF export failed: ' + error.message + '\n\nPlease try again in desktop mode.');
         } finally {
-            // Cleanup
+            // Cleanup - ensure all slides are restored
+            slides.forEach(slide => {
+                slide.style.display = '';
+                slide.style.opacity = '';
+                slide.style.transform = '';
+                slide.style.position = '';
+                slide.style.zIndex = '';
+                slide.style.left = '';
+                slide.style.top = '';
+                slide.style.width = '';
+                slide.style.height = '';
+                slide.style.background = '';
+            });
+            
             if (loadingIndicator && document.body.contains(loadingIndicator)) {
                 document.body.removeChild(loadingIndicator);
             }
@@ -201,11 +263,13 @@ class PDFExporter {
                 scale: 2,
                 useCORS: true,
                 backgroundColor: '#0a0a0a',
-                logging: false
+                logging: false,
+                width: slide.scrollWidth,
+                height: slide.scrollHeight
             });
 
             const link = document.createElement('a');
-            link.download = `ziver-slide-${currentSlideIndex + 1}.png`;
+            link.download = `ziver-slide-${currentSlideIndex + 1}-${new Date().getTime()}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
 
