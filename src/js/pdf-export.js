@@ -1,11 +1,14 @@
-// js/pdf-export.js
+// js/pdf-export.js - UPDATED VERSION
 function initializePdfExport() {
     const exportBtn = document.getElementById('exportBtn');
     const exportModal = document.getElementById('exportModal');
     const exportOptions = document.querySelectorAll('.export-option');
     const closeModal = document.getElementById('closeModal');
 
-    if (!exportBtn) return;
+    if (!exportBtn) {
+        console.log('Export button not found');
+        return;
+    }
 
     // Open the export modal
     exportBtn.addEventListener('click', () => {
@@ -21,12 +24,12 @@ function initializePdfExport() {
 
     // Handle export option clicks
     exportOptions.forEach(option => {
-        option.addEventListener('click', () => {
+        option.addEventListener('click', async () => {
             const format = option.getAttribute('data-format');
             if (format === 'pdf') {
-                exportToPDF();
+                await exportToPDF();
             } else if (format === 'png') {
-                exportToPNG();
+                await exportToPNG();
             } else if (format === 'pptx') {
                 alert('PowerPoint export requires server-side processing. Please use PDF export for now.');
             }
@@ -38,10 +41,20 @@ function initializePdfExport() {
 async function exportToPDF() {
     console.log('Starting PDF export...');
     
-    // Store current state
-    const originalSlide = window.currentSlide || 0;
+    // Check if jsPDF is available
+    if (typeof jsPDF === 'undefined') {
+        alert('PDF library not loaded. Please check your internet connection.');
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
     const slides = document.querySelectorAll('.slide');
     const totalSlides = slides.length;
+
+    if (totalSlides === 0) {
+        alert('No slides found to export.');
+        return;
+    }
 
     // Show loading indicator
     const loadingIndicator = document.createElement('div');
@@ -50,11 +63,12 @@ async function exportToPDF() {
         background: rgba(10, 10, 10, 0.95); color: var(--primary); padding: 20px 30px;
         border-radius: 12px; z-index: 10000; border: 1px solid var(--primary);
         font-family: Inter, sans-serif; font-weight: 600; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        display: flex; align-items: center; gap: 12px;
     `;
-    loadingIndicator.innerHTML = `<div style="display: flex; align-items: center; gap: 12px;">
+    loadingIndicator.innerHTML = `
         <div class="spinner-large"></div>
         <span>Generating PDF... 0/${totalSlides}</span>
-    </div>`;
+    `;
     document.body.appendChild(loadingIndicator);
 
     try {
@@ -64,17 +78,19 @@ async function exportToPDF() {
 
         for (let i = 0; i < totalSlides; i++) {
             // Update loading indicator
-            loadingIndicator.innerHTML = `<div style="display: flex; align-items: center; gap: 12px;">
+            loadingIndicator.innerHTML = `
                 <div class="spinner-large"></div>
                 <span>Generating PDF... ${i + 1}/${totalSlides}</span>
-            </div>`;
+            `;
 
             const slide = slides[i];
             
+            // Store original styles
+            const originalDisplay = slide.style.display;
+            const originalPosition = slide.style.position;
+            
             // Make slide visible for capture
             slide.style.display = 'block';
-            slide.style.opacity = '1';
-            slide.style.transform = 'translateX(0)';
             slide.style.position = 'fixed';
             slide.style.left = '0';
             slide.style.top = '0';
@@ -82,22 +98,22 @@ async function exportToPDF() {
             slide.style.background = '#0a0a0a';
             slide.style.width = '100vw';
             slide.style.height = '100vh';
+            slide.style.opacity = '1';
+            slide.style.transform = 'translateX(0)';
 
-            // Wait for slide to render
+            // Force a reflow
             await new Promise(resolve => setTimeout(resolve, 100));
 
             const canvas = await html2canvas(slide, {
-                scale: 2,
+                scale: 1.5,
                 useCORS: true,
                 backgroundColor: '#0a0a0a',
                 logging: false,
                 width: slide.scrollWidth,
-                height: slide.scrollHeight,
-                windowWidth: slide.scrollWidth,
-                windowHeight: slide.scrollHeight
+                height: slide.scrollHeight
             });
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const imgData = canvas.toDataURL('image/jpeg', 0.9);
 
             // Add new page for every slide after the first
             if (i > 0) {
@@ -115,12 +131,15 @@ async function exportToPDF() {
 
             pdf.addImage(imgData, 'JPEG', x, y, imgWidthPdf, imgHeightPdf);
 
-            // Hide slide after capture
-            slide.style.display = '';
-            slide.style.position = '';
+            // Restore original styles
+            slide.style.display = originalDisplay;
+            slide.style.position = originalPosition;
             slide.style.background = '';
             slide.style.width = '';
             slide.style.height = '';
+            slide.style.zIndex = '';
+            slide.style.left = '';
+            slide.style.top = '';
         }
 
         // Save the PDF
@@ -132,25 +151,13 @@ async function exportToPDF() {
         alert('An error occurred while generating the PDF. Please try again.');
     } finally {
         // Cleanup
-        document.body.removeChild(loadingIndicator);
+        if (document.body.contains(loadingIndicator)) {
+            document.body.removeChild(loadingIndicator);
+        }
         
-        // Restore all slides to their original state
-        const slides = document.querySelectorAll('.slide');
-        slides.forEach((slide, index) => {
-            slide.style.display = '';
-            slide.style.position = '';
-            slide.style.opacity = '';
-            slide.style.transform = '';
-            slide.style.background = '';
-            slide.style.width = '';
-            slide.style.height = '';
-            slide.style.zIndex = '';
-            slide.classList.remove('active');
-        });
-        
-        // Go back to the original slide
-        if (window.goToSlide) {
-            window.goToSlide(originalSlide);
+        // Make sure we're back on the current slide
+        if (window.goToSlide && window.currentSlide !== undefined) {
+            setTimeout(() => window.goToSlide(window.currentSlide), 100);
         }
     }
 }
@@ -158,8 +165,14 @@ async function exportToPDF() {
 async function exportToPNG() {
     console.log('Starting PNG export...');
     
-    const slide = document.querySelector('.slide.active');
-    if (!slide) return;
+    const slides = document.querySelectorAll('.slide');
+    const currentSlideIndex = window.currentSlide || 0;
+    const slide = slides[currentSlideIndex];
+    
+    if (!slide) {
+        alert('No active slide found.');
+        return;
+    }
 
     // Show loading indicator
     const loadingIndicator = document.createElement('div');
@@ -168,11 +181,12 @@ async function exportToPNG() {
         background: rgba(10, 10, 10, 0.95); color: var(--primary); padding: 20px 30px;
         border-radius: 12px; z-index: 10000; border: 1px solid var(--primary);
         font-family: Inter, sans-serif; font-weight: 600;
+        display: flex; align-items: center; gap: 12px;
     `;
-    loadingIndicator.innerHTML = `<div style="display: flex; align-items: center; gap: 12px;">
+    loadingIndicator.innerHTML = `
         <div class="spinner-large"></div>
         <span>Generating PNG...</span>
-    </div>`;
+    `;
     document.body.appendChild(loadingIndicator);
 
     try {
@@ -184,7 +198,7 @@ async function exportToPNG() {
         });
 
         const link = document.createElement('a');
-        link.download = `ziver-slide-${window.currentSlide + 1}.png`;
+        link.download = `ziver-slide-${currentSlideIndex + 1}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
 
@@ -193,7 +207,9 @@ async function exportToPNG() {
         console.error('Error during PNG export:', error);
         alert('An error occurred while generating the PNG. Please try again.');
     } finally {
-        document.body.removeChild(loadingIndicator);
+        if (document.body.contains(loadingIndicator)) {
+            document.body.removeChild(loadingIndicator);
+        }
     }
 }
 
