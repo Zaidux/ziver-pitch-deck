@@ -1,4 +1,4 @@
-// server.js - FIXED IMAGE PERSISTENCE AND ADD DELETE
+// server.js - PRODUCTION READY FOR RENDER
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -8,14 +8,16 @@ const fs = require('fs');
 
 const app = express();
 const port = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === 'production';
 
-// Database connection
+// Database connection - Render provides DATABASE_URL automatically
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    ssl: isProduction ? { rejectUnauthorized: false } : false
 });
 
 // Configure multer for file uploads
+// IMPORTANT: Render has ephemeral storage, so files may be lost on redeploy
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         const uploadDir = path.join(__dirname, 'public/uploads');
@@ -219,11 +221,41 @@ async function initializeDatabase() {
     }
 }
 
-// Middleware
+// Middleware - Production optimizations
 app.use(express.json({ limit: '50mb' }));
-app.use(express.static('public'));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Static files with caching for production
+app.use(express.static('public', {
+    maxAge: isProduction ? '1d' : '0',
+    etag: true,
+    lastModified: true
+}));
+
 app.use('/src', express.static('src'));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+
+// Security headers for production
+app.use((req, res, next) => {
+    if (isProduction) {
+        // Security headers
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('X-Frame-Options', 'DENY');
+        res.setHeader('X-XSS-Protection', '1; mode=block');
+        
+        // CORS headers for your domain
+        const allowedOrigins = [
+            'https://pitch.ziverapp.xyz',
+            'https://ziverapp.xyz',
+            'http://localhost:3000'
+        ];
+        const origin = req.headers.origin;
+        if (allowedOrigins.includes(origin)) {
+            res.setHeader('Access-Control-Allow-Origin', origin);
+        }
+    }
+    next();
+});
 
 // API Routes
 
@@ -284,9 +316,9 @@ app.get('/api/slides', async (req, res) => {
         const result = await pool.query(
             'SELECT * FROM slides ORDER BY slide_order'
         );
-        
+
         const dbSlides = result.rows;
-        
+
         // If no slides in database, return default slides
         if (dbSlides.length === 0) {
             console.log('No slides in database, returning default slides');
@@ -304,7 +336,7 @@ app.get('/api/slides', async (req, res) => {
         // Merge database slides with default slides
         const mergedSlides = defaultSlidesData.map((defaultSlide, index) => {
             const dbSlide = dbSlides.find(slide => slide.slide_order === index);
-            
+
             if (dbSlide) {
                 // Use database content but ensure we have all required fields
                 const mergedContent = {
@@ -315,7 +347,7 @@ app.get('/api/slides', async (req, res) => {
                     sections: (dbSlide.content && dbSlide.content.sections) || defaultSlide.sections,
                     visual: (dbSlide.content && dbSlide.content.visual) || defaultSlide.visual
                 };
-                
+
                 return {
                     id: dbSlide.id,
                     slide_order: index,
@@ -326,7 +358,7 @@ app.get('/api/slides', async (req, res) => {
                     updated_at: dbSlide.updated_at
                 };
             }
-            
+
             // No database entry for this slide, use default
             return {
                 id: index,
@@ -493,17 +525,37 @@ app.delete('/api/slides/:order/image', async (req, res) => {
     }
 });
 
-// Serve main app
+// Health check endpoint for Render
+app.get('/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
+
+// Serve main app - MUST be last
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
 // Initialize database and start server
 initializeDatabase().then(() => {
-    app.listen(port, () => {
-        console.log(`Ziver pitch deck running at http://localhost:${port}`);
-        console.log('File uploads enabled at /api/upload/image');
-        console.log('Image delete enabled at /api/slides/:order/image');
-        console.log('Database integration: Edits will be saved, default content always available');
+    app.listen(port, '0.0.0.0', () => {
+        console.log(`🚀 Ziver Pitch Deck running in ${isProduction ? 'PRODUCTION' : 'development'} mode`);
+        console.log(`📍 Port: ${port}`);
+        console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log('✅ File uploads enabled at /api/upload/image');
+        console.log('✅ Image delete enabled at /api/slides/:order/image');
+        console.log('✅ Health check at /health');
+        console.log('📊 Database integration: Edits will be saved, default content always available');
+        
+        if (isProduction) {
+            console.log('🔒 Production mode: Security headers enabled');
+            console.log('💾 Static files: 1-day cache enabled');
+        }
     });
+}).catch(error => {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
 });
