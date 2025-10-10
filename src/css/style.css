@@ -775,3 +775,37 @@ body {
     overflow: hidden;
   }
 }
+
+/* Ensure PDF export captures styles correctly */
+.slide {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+}
+
+/* Force background colors in PDF */
+.slide.active {
+    background: #0a0a0a !important;
+}
+
+.title-slide {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%) !important;
+}
+
+/* Ensure text visibility in PDF */
+.slide h1,
+.slide h2,
+.slide h3,
+.slide p,
+.slide li {
+    color: inherit !important;
+    background: transparent !important;
+}
+
+/* Fix for gradient text in PDF */
+.title-slide h1 {
+    background: linear-gradient(135deg, #00e676 0%, #69f0ae 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
