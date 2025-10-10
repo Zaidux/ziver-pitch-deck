@@ -1,6 +1,7 @@
-// js/pdf-export.js - COMPLETELY REWORKED VERSION
+// js/pdf-export.js - SIMPLIFIED WORKING VERSION
 class PDFExporter {
     constructor() {
+        console.log('PDFExporter initializing...');
         this.initialize();
     }
 
@@ -34,6 +35,8 @@ class PDFExporter {
                 this.hideExportModal();
             }
         });
+
+        console.log('PDFExporter initialized');
     }
 
     showExportModal() {
@@ -57,7 +60,8 @@ class PDFExporter {
                 await this.exportCurrentSlideToPNG();
                 break;
             case 'pptx':
-                await this.exportToPPTX();
+                alert('PowerPoint export coming soon! Using PDF for now.');
+                await this.exportToPDF();
                 break;
         }
     }
@@ -65,8 +69,9 @@ class PDFExporter {
     async exportToPDF() {
         console.log('Starting PDF export...');
         
-        if (typeof html2canvas === 'undefined') {
-            alert('Export libraries not loaded. Please refresh the page.');
+        // Check if jsPDF is available
+        if (typeof jspdf === 'undefined') {
+            alert('PDF library loading... Please wait and try again.');
             return;
         }
 
@@ -78,15 +83,10 @@ class PDFExporter {
             return;
         }
 
-        const loadingIndicator = this.createLoadingIndicator('Preparing PDF export...');
+        const loadingIndicator = this.createLoadingIndicator('Preparing PDF...');
         document.body.appendChild(loadingIndicator);
 
         try {
-            // Load jsPDF if not available
-            if (typeof jsPDF === 'undefined') {
-                await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-            }
-
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF({
                 orientation: 'landscape',
@@ -97,113 +97,81 @@ class PDFExporter {
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
 
-            // Store current slide and show all slides temporarily
+            // Store current state
             const currentSlide = window.currentSlide || 0;
-            const originalStates = this.storeOriginalStates(slides);
-
-            // Show all slides for capture
-            slides.forEach(slide => {
-                slide.style.display = 'block';
-                slide.style.position = 'fixed';
-                slide.style.left = '0';
-                slide.style.top = '0';
-                slide.style.width = '100vw';
-                slide.style.height = '100vh';
-                slide.style.zIndex = '-9999';
-                slide.style.opacity = '0';
-                slide.style.pointerEvents = 'none';
-            });
 
             for (let i = 0; i < totalSlides; i++) {
                 loadingIndicator.innerHTML = this.createLoadingHTML(`Capturing slide ${i + 1}/${totalSlides}`);
                 
                 const slide = slides[i];
                 
-                // Make current slide visible for capture
-                slide.style.zIndex = '9999';
-                slide.style.opacity = '1';
+                // Make slide temporarily visible
+                const originalDisplay = slide.style.display;
+                const originalOpacity = slide.style.opacity;
+                const originalTransform = slide.style.transform;
                 
-                // Wait for slide to render
-                await new Promise(resolve => setTimeout(resolve, 300));
+                slide.style.display = 'block';
+                slide.style.opacity = '1';
+                slide.style.transform = 'translateX(0)';
+                slide.style.position = 'fixed';
+                slide.style.left = '0';
+                slide.style.top = '0';
+                slide.style.zIndex = '9999';
+                slide.style.width = '100vw';
+                slide.style.height = '100vh';
+                slide.style.background = '#0a0a0a';
+
+                // Wait for render
+                await new Promise(resolve => setTimeout(resolve, 500));
 
                 const canvas = await html2canvas(slide, {
-                    scale: 2, // Higher quality
+                    scale: 1.5,
                     useCORS: true,
                     backgroundColor: '#0a0a0a',
                     logging: true,
-                    width: window.innerWidth,
-                    height: window.innerHeight,
-                    windowWidth: window.innerWidth,
-                    windowHeight: window.innerHeight,
-                    scrollX: 0,
-                    scrollY: 0,
-                    onclone: (clonedDoc, element) => {
-                        // Ensure all styles are applied in the clone
-                        const clonedSlide = clonedDoc.querySelector('.slide[data-slide="' + i + '"]');
-                        if (clonedSlide) {
-                            clonedSlide.style.width = '100%';
-                            clonedSlide.style.height = '100%';
-                            clonedSlide.style.background = '#0a0a0a';
-                        }
-                    }
+                    width: slide.scrollWidth,
+                    height: slide.scrollHeight,
+                    windowWidth: slide.scrollWidth,
+                    windowHeight: slide.scrollHeight
                 });
 
-                // Hide slide after capture
-                slide.style.zIndex = '-9999';
-                slide.style.opacity = '0';
+                const imgData = canvas.toDataURL('image/jpeg', 0.9);
 
-                const imgData = canvas.toDataURL('image/jpeg', 0.95);
-
-                // Add new page for every slide after the first
+                // Add page if not first slide
                 if (i > 0) {
                     pdf.addPage();
                 }
 
-                // Calculate dimensions to fit the page perfectly
+                // Calculate dimensions
                 const imgWidth = canvas.width;
                 const imgHeight = canvas.height;
-                const pageRatio = pageWidth / pageHeight;
-                const imgRatio = imgWidth / imgHeight;
+                const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+                const imgWidthPdf = imgWidth * ratio;
+                const imgHeightPdf = imgHeight * ratio;
+                const x = (pageWidth - imgWidthPdf) / 2;
+                const y = (pageHeight - imgHeightPdf) / 2;
 
-                let finalWidth, finalHeight, x, y;
+                // Add to PDF
+                pdf.addImage(imgData, 'JPEG', x, y, imgWidthPdf, imgHeightPdf);
 
-                if (imgRatio > pageRatio) {
-                    // Image is wider than page
-                    finalWidth = pageWidth;
-                    finalHeight = pageWidth / imgRatio;
-                    x = 0;
-                    y = (pageHeight - finalHeight) / 2;
-                } else {
-                    // Image is taller than page
-                    finalHeight = pageHeight;
-                    finalWidth = pageHeight * imgRatio;
-                    x = (pageWidth - finalWidth) / 2;
-                    y = 0;
-                }
-
-                // Add image to PDF with proper coordinates
-                pdf.addImage({
-                    imageData: imgData,
-                    format: 'JPEG',
-                    x: x,
-                    y: y,
-                    width: finalWidth,
-                    height: finalHeight
-                });
-
-                console.log(`Slide ${i + 1} added to PDF`);
+                // Restore slide
+                slide.style.display = originalDisplay;
+                slide.style.opacity = originalOpacity;
+                slide.style.transform = originalTransform;
+                slide.style.position = '';
+                slide.style.zIndex = '';
+                slide.style.background = '';
             }
 
             // Save PDF
             pdf.save('ziver-pitch-deck.pdf');
-            console.log('PDF export completed successfully');
+            console.log('PDF export completed');
 
         } catch (error) {
             console.error('PDF export error:', error);
-            alert('Error generating PDF: ' + error.message);
+            alert('PDF export failed: ' + error.message);
         } finally {
             // Cleanup
-            this.restoreOriginalStates(slides);
             if (loadingIndicator && document.body.contains(loadingIndicator)) {
                 document.body.removeChild(loadingIndicator);
             }
@@ -229,43 +197,21 @@ class PDFExporter {
         document.body.appendChild(loadingIndicator);
 
         try {
-            // Store original state
-            const originalDisplay = slide.style.display;
-            const originalPosition = slide.style.position;
-            
-            // Make slide visible for capture
-            slide.style.display = 'block';
-            slide.style.position = 'fixed';
-            slide.style.left = '0';
-            slide.style.top = '0';
-            slide.style.width = '100vw';
-            slide.style.height = '100vh';
-            slide.style.zIndex = '9999';
-            
-            await new Promise(resolve => setTimeout(resolve, 300));
-
             const canvas = await html2canvas(slide, {
                 scale: 2,
                 useCORS: true,
                 backgroundColor: '#0a0a0a',
-                logging: false,
-                width: window.innerWidth,
-                height: window.innerHeight
+                logging: false
             });
 
             const link = document.createElement('a');
-            link.download = `ziver-slide-${currentSlideIndex + 1}-${new Date().getTime()}.png`;
+            link.download = `ziver-slide-${currentSlideIndex + 1}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
 
-            // Restore state
-            slide.style.display = originalDisplay;
-            slide.style.position = originalPosition;
-            slide.style.zIndex = '';
-
         } catch (error) {
             console.error('PNG export error:', error);
-            alert('Error generating PNG: ' + error.message);
+            alert('PNG export failed: ' + error.message);
         } finally {
             if (loadingIndicator && document.body.contains(loadingIndicator)) {
                 document.body.removeChild(loadingIndicator);
@@ -273,56 +219,12 @@ class PDFExporter {
         }
     }
 
-    async exportToPPTX() {
-        alert('PowerPoint export will be available soon. For now, please use the PDF export which works great for presentations!');
-    }
-
-    async loadScript(src) {
-        return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = src;
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
-    }
-
-    storeOriginalStates(slides) {
-        return Array.from(slides).map(slide => ({
-            display: slide.style.display,
-            position: slide.style.position,
-            opacity: slide.style.opacity,
-            transform: slide.style.transform,
-            zIndex: slide.style.zIndex,
-            left: slide.style.left,
-            top: slide.style.top,
-            width: slide.style.width,
-            height: slide.style.height,
-            pointerEvents: slide.style.pointerEvents
-        }));
-    }
-
-    restoreOriginalStates(slides) {
-        slides.forEach((slide, index) => {
-            slide.style.display = '';
-            slide.style.position = '';
-            slide.style.opacity = '';
-            slide.style.transform = '';
-            slide.style.zIndex = '';
-            slide.style.left = '';
-            slide.style.top = '';
-            slide.style.width = '';
-            slide.style.height = '';
-            slide.style.pointerEvents = '';
-        });
-    }
-
     createLoadingIndicator(text) {
         const indicator = document.createElement('div');
         indicator.style.cssText = `
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(10, 10, 10, 0.95); color: var(--primary); padding: 20px 30px;
-            border-radius: 12px; z-index: 10000; border: 1px solid var(--primary);
+            background: rgba(10, 10, 10, 0.95); color: #00e676; padding: 20px 30px;
+            border-radius: 12px; z-index: 10000; border: 1px solid #00e676;
             font-family: Inter, sans-serif; font-weight: 600; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             display: flex; align-items: center; gap: 12px;
         `;
@@ -332,15 +234,13 @@ class PDFExporter {
 
     createLoadingHTML(text) {
         return `
-            <div class="spinner-large"></div>
+            <div style="width: 24px; height: 24px; border: 3px solid #00e676; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite;"></div>
             <span>${text}</span>
         `;
     }
 }
 
 // Initialize when ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => new PDFExporter());
-} else {
+document.addEventListener('DOMContentLoaded', function() {
     new PDFExporter();
-}
+});
