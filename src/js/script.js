@@ -1,4 +1,4 @@
-// js/script.js - UPDATED WITH FILE UPLOAD
+// js/script.js - UPDATED WITH DELETE FUNCTIONALITY AND FIXED IMAGE PERSISTENCE
 document.addEventListener('DOMContentLoaded', function() {
     // Elements
     const slideNav = document.getElementById('slideNav');
@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (response.ok) {
                     const dbSlides = await response.json();
                     if (dbSlides.length > 0) {
-                        slidesData = dbSlides.map(slide => slide.content || slide);
+                        slidesData = dbSlides;
                     } else {
                         // Use default content if database is empty
                         slidesData = window.slidesData || [];
@@ -71,21 +71,25 @@ document.addEventListener('DOMContentLoaded', function() {
         slide.dataset.slide = index;
         slide.dataset.slideOrder = index;
 
-        if (slideData.type === 'title') {
+        // Extract content and image_url
+        const content = slideData.content || slideData;
+        const imageUrl = slideData.image_url;
+
+        if (content.type === 'title') {
             slide.classList.add('title-slide');
             slide.innerHTML = `
                 <div class="slide-content">
-                    <h1 contenteditable="false">${slideData.title}</h1>
-                    <h2 contenteditable="false">${slideData.subtitle}</h2>
-                    <p contenteditable="false">${slideData.tagline}</p>
-                    ${slideData.presenter ? `<p contenteditable="false">${slideData.presenter}</p>` : ''}
+                    <h1 contenteditable="false">${content.title}</h1>
+                    <h2 contenteditable="false">${content.subtitle}</h2>
+                    <p contenteditable="false">${content.tagline}</p>
+                    ${content.presenter ? `<p contenteditable="false">${content.presenter}</p>` : ''}
                 </div>
             `;
         } else {
             let contentHTML = '';
 
-            if (slideData.sections) {
-                slideData.sections.forEach(section => {
+            if (content.sections) {
+                content.sections.forEach(section => {
                     if (section.list && section.list.length > 0) {
                         contentHTML += `
                             <h3 contenteditable="false">${section.title}</h3>
@@ -106,21 +110,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
 
-            // Create visual placeholder with + button
-            const hasImage = slideData.image_url;
+            // Create visual placeholder with appropriate buttons
+            const hasImage = imageUrl;
             const visualContent = hasImage ? 
-                `<img src="${slideData.image_url}" alt="${slideData.visual}" style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-lg);">` :
-                slideData.visual;
+                `<img src="${imageUrl}" alt="Slide image" style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-lg);">` :
+                (content.visual || 'Image placeholder');
+
+            // Determine which buttons to show
+            const uploadButton = `
+                <div class="image-upload-btn" data-slide-order="${index}">
+                    <span>+</span>
+                    <input type="file" accept="image/*" style="display: none;">
+                </div>
+            `;
+            
+            const deleteButton = `
+                <div class="image-delete-btn" data-slide-order="${index}" title="Delete image">
+                    <span>×</span>
+                </div>
+            `;
 
             slide.innerHTML = `
                 <div class="slide-content">
-                    <h2 contenteditable="false">${slideData.title}</h2>
+                    <h2 contenteditable="false">${content.title}</h2>
                     <div class="visual-placeholder ${hasImage ? 'has-image' : ''}" data-slide-order="${index}">
                         ${visualContent}
-                        <div class="image-upload-btn" data-slide-order="${index}">
-                            <span>+</span>
-                            <input type="file" accept="image/*" style="display: none;">
-                        </div>
+                        ${hasImage ? deleteButton : uploadButton}
                     </div>
                     ${contentHTML}
                 </div>
@@ -133,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (navItemsContainer) {
             const navItem = document.createElement('div');
             navItem.className = 'slide-nav-item';
-            navItem.textContent = slideData.title;
+            navItem.textContent = content.title;
             navItem.addEventListener('click', () => goToSlide(index));
             navItemsContainer.appendChild(navItem);
         }
@@ -169,6 +184,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Update URL hash
         window.location.hash = `slide-${index + 1}`;
+    }
+
+    // Update buttons when edit mode changes
+    function updateImageButtons() {
+        const visualPlaceholders = document.querySelectorAll('.visual-placeholder');
+        
+        visualPlaceholders.forEach(placeholder => {
+            const slideOrder = placeholder.dataset.slideOrder;
+            const hasImage = placeholder.classList.contains('has-image');
+            
+            if (editMode) {
+                // In edit mode, show appropriate button
+                if (hasImage) {
+                    // Show delete button for existing images
+                    placeholder.innerHTML = placeholder.innerHTML.replace(
+                        /<div class="image-upload-btn[^>]*>[\s\S]*?<\/div>|<div class="image-delete-btn[^>]*>[\s\S]*?<\/div>/g,
+                        `<div class="image-delete-btn" data-slide-order="${slideOrder}" title="Delete image">
+                            <span>×</span>
+                        </div>`
+                    );
+                } else {
+                    // Show upload button for empty placeholders
+                    placeholder.innerHTML = placeholder.innerHTML.replace(
+                        /<div class="image-upload-btn[^>]*>[\s\S]*?<\/div>|<div class="image-delete-btn[^>]*>[\s\S]*?<\/div>/g,
+                        `<div class="image-upload-btn" data-slide-order="${slideOrder}">
+                            <span>+</span>
+                            <input type="file" accept="image/*" style="display: none;">
+                        </div>`
+                    );
+                }
+            } else {
+                // Not in edit mode, hide all buttons
+                placeholder.innerHTML = placeholder.innerHTML.replace(
+                    /<div class="image-upload-btn[^>]*>[\s\S]*?<\/div>|<div class="image-delete-btn[^>]*>[\s\S]*?<\/div>/g,
+                    ''
+                );
+            }
+        });
     }
 
     // Auto-save functionality
@@ -267,13 +320,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Setup image upload buttons
-    function setupImageUpload() {
+    // Setup image upload and delete buttons
+    function setupImageButtons() {
         document.addEventListener('click', (e) => {
+            const slideOrder = e.target.closest('[data-slide-order]')?.dataset.slideOrder;
+            
+            if (!slideOrder) return;
+
+            // Handle upload button click
             if (e.target.classList.contains('image-upload-btn') || e.target.closest('.image-upload-btn')) {
                 const uploadBtn = e.target.classList.contains('image-upload-btn') ? e.target : e.target.closest('.image-upload-btn');
                 const fileInput = uploadBtn.querySelector('input[type="file"]');
                 fileInput?.click();
+            }
+            
+            // Handle delete button click
+            else if (e.target.classList.contains('image-delete-btn') || e.target.closest('.image-delete-btn')) {
+                if (confirm('Are you sure you want to delete this image?')) {
+                    deleteImageForSlide(slideOrder);
+                }
             }
         });
 
@@ -338,18 +403,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await response.json();
 
             if (result.success) {
-                // Update the visual placeholder
-                const slide = slides[slideOrder];
-                const visualPlaceholder = slide.querySelector('.visual-placeholder');
-                visualPlaceholder.classList.add('has-image');
-                visualPlaceholder.innerHTML = `
-                    <img src="${imageUrl}" alt="Slide image" style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-lg);">
-                    <div class="image-upload-btn" data-slide-order="${slideOrder}">
-                        <span>+</span>
-                        <input type="file" accept="image/*" style="display: none;">
-                    </div>
-                `;
-                
+                // Reload the slide to show the new image and delete button
+                await reloadSlide(slideOrder);
                 console.log('Image saved successfully');
             } else {
                 alert('Failed to save image: ' + (result.error || 'Unknown error'));
@@ -357,6 +412,65 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error saving image:', error);
             alert('Error saving image: ' + error.message);
+        }
+    }
+
+    async function deleteImageForSlide(slideOrder) {
+        const loadingIndicator = createLoadingIndicator('Deleting image...');
+        document.body.appendChild(loadingIndicator);
+
+        try {
+            const response = await fetch(`/api/slides/${slideOrder}/image`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Reload the slide to show the upload button
+                await reloadSlide(slideOrder);
+                console.log('Image deleted successfully');
+            } else {
+                alert('Failed to delete image: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error deleting image:', error);
+            alert('Error deleting image: ' + error.message);
+        } finally {
+            if (loadingIndicator && document.body.contains(loadingIndicator)) {
+                document.body.removeChild(loadingIndicator);
+            }
+        }
+    }
+
+    async function reloadSlide(slideOrder) {
+        try {
+            // Reload all slides from server
+            const response = await fetch('/api/slides');
+            if (response.ok) {
+                const slidesData = await response.json();
+                const slideData = slidesData[slideOrder];
+                
+                if (slideData) {
+                    // Recreate the slide element
+                    const slide = slides[slideOrder];
+                    const newSlide = createSlideElement(slideData, slideOrder);
+                    slide.parentNode.replaceChild(newSlide, slide);
+                    
+                    // Update slides reference
+                    slides = document.querySelectorAll('.slide');
+                    
+                    // Reactivate current slide if needed
+                    if (window.currentSlide == slideOrder) {
+                        goToSlide(window.currentSlide);
+                    }
+                    
+                    // Update buttons for edit mode
+                    updateImageButtons();
+                }
+            }
+        } catch (error) {
+            console.error('Error reloading slide:', error);
         }
     }
 
@@ -378,10 +492,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize the slides
     initSlides().then(() => {
-        setupImageUpload();
+        setupImageButtons();
     });
 
-    // ... rest of your existing code (navigation, export, etc.) remains the same ...
     // Toggle navigation
     if (toggleNav) {
         toggleNav.addEventListener('click', () => {
@@ -496,6 +609,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     el.style.background = 'transparent';
                 }
             });
+
+            // Update image buttons based on edit mode
+            updateImageButtons();
 
             editToggle.textContent = editMode ? '💾 Save Changes' : '✏️ Edit Mode';
             if (editToggle.classList) {
