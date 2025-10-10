@@ -727,3 +727,51 @@ body {
     object-fit: cover;
     border-radius: var(--radius-lg);
 }
+
+/* Fix mobile scrolling and content visibility */
+@media (max-width: 768px) {
+  .slides-container {
+    overflow-y: auto !important;
+    height: calc(100vh - 120px) !important;
+  }
+
+  .slide {
+    position: relative !important;
+    transform: none !important;
+    opacity: 1 !important;
+    height: auto !important;
+    min-height: 100%;
+  }
+
+  .slide:not(.active) {
+    display: none !important;
+  }
+
+  .slide.active {
+    display: block !important;
+  }
+
+  .slide-content {
+    padding-bottom: 80px !important; /* Space for navigation */
+    min-height: calc(100vh - 200px);
+  }
+
+  .main-content {
+    height: 100vh !important;
+  }
+}
+
+/* Ensure content is visible on mobile */
+.slide-content {
+  overflow-y: auto;
+  max-height: 100%;
+}
+
+/* Fix visual placeholder on mobile */
+@media (max-width: 768px) {
+  .visual-placeholder {
+    min-height: 150px !important;
+    max-height: 200px;
+    overflow: hidden;
+  }
+}
