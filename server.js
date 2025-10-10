@@ -1,8 +1,10 @@
-// server.js - FIXED WITH PROPER FALLBACK TO CONTENT.JS
+// server.js - FIXED WITH PROPER SAVING AND FILE UPLOAD
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
+const multer = require('multer');
+const fs = require('fs');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -11,6 +13,38 @@ const port = process.env.PORT || 3000;
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadDir = path.join(__dirname, 'public/uploads');
+        // Create uploads directory if it doesn't exist
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        // Generate unique filename
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'slide-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({ 
+    storage: storage,
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB limit
+    },
+    fileFilter: function (req, file, cb) {
+        // Check if file is an image
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed!'), false);
+        }
+    }
 });
 
 // Default slides data (fallback)
@@ -189,6 +223,7 @@ async function initializeDatabase() {
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static('public'));
 app.use('/src', express.static('src'));
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // API Routes
 
@@ -243,7 +278,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-// Slides management - FIXED: Always return slides, merge database edits with default content
+// Slides management
 app.get('/api/slides', async (req, res) => {
     try {
         const result = await pool.query(
@@ -323,75 +358,99 @@ app.get('/api/slides', async (req, res) => {
     }
 });
 
-app.put('/api/slides/:id', async (req, res) => {
+app.put('/api/slides/:order', async (req, res) => {
     try {
-        const { id } = req.params;
-        const { title, content, image_url } = req.body;
+        const { order } = req.params;
+        const { title, content } = req.body;
+
+        console.log(`Saving slide ${order}:`, { title });
 
         // Check if slide exists
         const existingSlide = await pool.query(
             'SELECT * FROM slides WHERE slide_order = $1',
-            [id]
+            [order]
         );
 
         if (existingSlide.rows.length > 0) {
             // Update existing slide
             const result = await pool.query(
                 `UPDATE slides 
-                 SET title = $1, content = $2, image_url = $3, updated_at = CURRENT_TIMESTAMP 
-                 WHERE slide_order = $4 
+                 SET title = $1, content = $2, updated_at = CURRENT_TIMESTAMP 
+                 WHERE slide_order = $3 
                  RETURNING *`,
-                [title, content, image_url, id]
+                [title, content, order]
             );
             res.json({ success: true, slide: result.rows[0] });
         } else {
             // Insert new slide
             const result = await pool.query(
-                `INSERT INTO slides (slide_order, title, content, image_url) 
-                 VALUES ($1, $2, $3, $4) 
+                `INSERT INTO slides (slide_order, title, content) 
+                 VALUES ($1, $2, $3) 
                  RETURNING *`,
-                [id, title, content, image_url]
+                [order, title, content]
             );
             res.json({ success: true, slide: result.rows[0] });
         }
 
     } catch (error) {
         console.error('Update slide error:', error);
-        res.status(500).json({ error: 'Failed to update slide' });
+        res.status(500).json({ error: 'Failed to update slide: ' + error.message });
     }
 });
 
-app.post('/api/slides/:id/image', async (req, res) => {
+// File upload endpoint
+app.post('/api/upload/image', upload.single('image'), async (req, res) => {
     try {
-        const { id } = req.params;
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const imageUrl = `/uploads/${req.file.filename}`;
+        res.json({ 
+            success: true, 
+            imageUrl: imageUrl,
+            message: 'File uploaded successfully'
+        });
+
+    } catch (error) {
+        console.error('File upload error:', error);
+        res.status(500).json({ error: 'File upload failed: ' + error.message });
+    }
+});
+
+app.post('/api/slides/:order/image', async (req, res) => {
+    try {
+        const { order } = req.params;
         const { imageUrl } = req.body;
+
+        console.log(`Setting image for slide ${order}:`, imageUrl);
 
         // Check if slide exists
         const existingSlide = await pool.query(
             'SELECT * FROM slides WHERE slide_order = $1',
-            [id]
+            [order]
         );
 
         if (existingSlide.rows.length > 0) {
             // Update existing slide
             const result = await pool.query(
                 'UPDATE slides SET image_url = $1, updated_at = CURRENT_TIMESTAMP WHERE slide_order = $2 RETURNING *',
-                [imageUrl, id]
+                [imageUrl, order]
             );
             res.json({ success: true, slide: result.rows[0] });
         } else {
             // Insert new slide with image
-            const defaultSlide = defaultSlidesData[id] || { title: `Slide ${parseInt(id) + 1}` };
+            const defaultSlide = defaultSlidesData[order] || { title: `Slide ${parseInt(order) + 1}` };
             const result = await pool.query(
                 'INSERT INTO slides (slide_order, title, content, image_url) VALUES ($1, $2, $3, $4) RETURNING *',
-                [id, defaultSlide.title, defaultSlide, imageUrl]
+                [order, defaultSlide.title, defaultSlide, imageUrl]
             );
             res.json({ success: true, slide: result.rows[0] });
         }
 
     } catch (error) {
         console.error('Update image error:', error);
-        res.status(500).json({ error: 'Failed to update image' });
+        res.status(500).json({ error: 'Failed to update image: ' + error.message });
     }
 });
 
@@ -404,6 +463,7 @@ app.get('*', (req, res) => {
 initializeDatabase().then(() => {
     app.listen(port, () => {
         console.log(`Ziver pitch deck running at http://localhost:${port}`);
+        console.log('File uploads enabled at /api/upload/image');
         console.log('Database integration: Edits will be saved, default content always available');
     });
 });
