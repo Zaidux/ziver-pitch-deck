@@ -598,7 +598,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (exportModal) exportModal.classList.remove('active');
         });
-    }
+    });
 
     // Toggle edit mode
     if (editToggle) {
