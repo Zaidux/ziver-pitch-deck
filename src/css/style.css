@@ -860,3 +860,28 @@ body {
 .edit-mode .image-upload-btn {
     opacity: 1;
 }
+
+.image-delete-btn {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 30px;
+    height: 30px;
+    background: #ff4444;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    border: 2px solid white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    z-index: 10;
+}
+
+.image-delete-btn:hover {
+    background: #cc0000;
+    transform: scale(1.1);
+}
