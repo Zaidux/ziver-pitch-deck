@@ -545,3 +545,185 @@ body {
     font-size: 1rem;
   }
 }
+
+/* Add to your existing CSS - Mobile specific improvements */
+@media (max-width: 768px) {
+  .pitch-deck-container {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    position: fixed;
+    width: 100%;
+    height: 60vh;
+    bottom: 0;
+    top: auto;
+    transform: translateY(100%);
+    z-index: 100;
+    border-right: none;
+    border-top: 1px solid var(--border-color);
+  }
+  
+  .sidebar.hidden {
+    transform: translateY(100%);
+  }
+  
+  .sidebar:not(.hidden) {
+    transform: translateY(0);
+  }
+  
+  .main-content {
+    margin-left: 0;
+    margin-top: 0;
+    height: 40vh;
+  }
+  
+  .header {
+    padding: var(--spacing-md);
+    height: 60px;
+  }
+  
+  .controls {
+    gap: var(--spacing-sm);
+  }
+  
+  .btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+  
+  .slide-content {
+    padding: var(--spacing-md);
+    justify-content: flex-start;
+  }
+  
+  .title-slide h1 {
+    font-size: 2rem;
+    margin-bottom: var(--spacing-sm);
+  }
+  
+  .title-slide h2 {
+    font-size: 1.25rem;
+    margin-bottom: var(--spacing-md);
+  }
+  
+  .slide h2 {
+    font-size: 1.75rem;
+    margin-bottom: var(--spacing-md);
+  }
+  
+  .slide h3 {
+    font-size: 1.25rem;
+    margin-bottom: var(--spacing-sm);
+  }
+  
+  .slide p, .slide li {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  
+  .visual-placeholder {
+    min-height: 120px;
+    padding: var(--spacing-md);
+    margin: var(--spacing-md) 0;
+  }
+  
+  .nav-arrows {
+    bottom: var(--spacing-md);
+    right: var(--spacing-md);
+  }
+  
+  .nav-arrow {
+    width: 44px;
+    height: 44px;
+    font-size: 1.1rem;
+  }
+  
+  .toggle-nav {
+    top: var(--spacing-md);
+    left: var(--spacing-md);
+    background-color: var(--primary);
+    color: #000;
+  }
+  
+  /* Mobile-specific toggle for sidebar */
+  .mobile-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+  }
+  
+  .mobile-overlay.active {
+    display: block;
+  }
+}
+
+/* Touch improvements for mobile */
+@media (hover: none) and (pointer: coarse) {
+  .btn, .nav-arrow, .slide-nav-item, .export-option {
+    min-height: 44px; /* Apple's recommended touch target size */
+  }
+  
+  .slide-nav-item {
+    padding: var(--spacing-md) var(--spacing-lg);
+  }
+}
+
+/* Prevent zoom on input for mobile */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px; /* Prevents zoom on focus */
+  }
+}
+
+.upload-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.upload-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.upload-section label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.form-input {
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background-color: var(--input-bg);
+    color: var(--text-primary);
+    font-family: inherit;
+}
+
+.upload-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: flex-end;
+    margin-top: var(--spacing-lg);
+}
+
+/* Image replacement in visual placeholders */
+.visual-placeholder.has-image {
+    padding: 0;
+    background: none;
+    border: none;
+}
+
+.visual-placeholder.has-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--radius-lg);
+}
