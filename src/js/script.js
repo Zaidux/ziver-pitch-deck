@@ -1,4 +1,4 @@
-// js/script.js - UPDATED VERSION WITH GLOBAL VARIABLES
+// js/script.js - UPDATED WITH AUTO-SAVE AND + BUTTONS
 document.addEventListener('DOMContentLoaded', function() {
     // Elements
     const slideNav = document.getElementById('slideNav');
@@ -17,35 +17,79 @@ document.addEventListener('DOMContentLoaded', function() {
     window.currentSlide = 0;
     let editMode = false;
     let slides = [];
+    let saveTimeout = null;
 
-    // Initialize slides using the external slidesData from content.js
-    function initSlides() {
-        // Clear existing slides and nav items
-        slidesContainer.innerHTML = '';
-        if (navItemsContainer) {
-            navItemsContainer.innerHTML = '';
+    // Initialize slides from database
+    async function initSlides() {
+        try {
+            // Clear existing slides and nav items
+            slidesContainer.innerHTML = '';
+            if (navItemsContainer) {
+                navItemsContainer.innerHTML = '';
+            }
+
+            // Try to load from database first
+            let slidesData = [];
+            try {
+                const response = await fetch('/api/slides');
+                if (response.ok) {
+                    const dbSlides = await response.json();
+                    if (dbSlides.length > 0) {
+                        slidesData = dbSlides.map(slide => slide.content || slide);
+                    } else {
+                        // Initialize with default content if database is empty
+                        slidesData = window.slidesData || [];
+                        await fetch('/api/slides/initialize', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ slidesData })
+                        });
+                    }
+                }
+            } catch (error) {
+                console.log('Using default slides data');
+                slidesData = window.slidesData || [];
+            }
+
+            // Create all slides
+            slidesData.forEach((slideData, index) => {
+                createSlideElement(slideData, index);
+            });
+
+            // Get reference to all slides and nav items
+            slides = document.querySelectorAll('.slide');
+            const navItems = document.querySelectorAll('.slide-nav-item');
+
+            // Activate first slide
+            goToSlide(0);
+
+            console.log('Slides initialized successfully');
+
+        } catch (error) {
+            console.error('Error initializing slides:', error);
         }
+    }
 
-        // Create all slides from the slidesData (now in content.js)
-        slidesData.forEach((slideData, index) => {
-            // Create slide element
-            const slide = document.createElement('div');
-            slide.className = 'slide';
-            slide.dataset.slide = index;
+    function createSlideElement(slideData, index) {
+        const slide = document.createElement('div');
+        slide.className = 'slide';
+        slide.dataset.slide = index;
+        slide.dataset.slideId = slideData.id || index;
 
-            if (slideData.type === 'title') {
-                slide.classList.add('title-slide');
-                slide.innerHTML = `
-                    <div class="slide-content">
-                        <h1 contenteditable="false">${slideData.title}</h1>
-                        <h2 contenteditable="false">${slideData.subtitle}</h2>
-                        <p contenteditable="false">${slideData.tagline}</p>
-                        ${slideData.presenter ? `<p contenteditable="false">${slideData.presenter}</p>` : ''}
-                    </div>
-                `;
-            } else {
-                let contentHTML = '';
+        if (slideData.type === 'title') {
+            slide.classList.add('title-slide');
+            slide.innerHTML = `
+                <div class="slide-content">
+                    <h1 contenteditable="false">${slideData.title}</h1>
+                    <h2 contenteditable="false">${slideData.subtitle}</h2>
+                    <p contenteditable="false">${slideData.tagline}</p>
+                    ${slideData.presenter ? `<p contenteditable="false">${slideData.presenter}</p>` : ''}
+                </div>
+            `;
+        } else {
+            let contentHTML = '';
 
+            if (slideData.sections) {
                 slideData.sections.forEach(section => {
                     if (section.list && section.list.length > 0) {
                         contentHTML += `
@@ -65,34 +109,36 @@ document.addEventListener('DOMContentLoaded', function() {
                         `;
                     }
                 });
+            }
 
-                slide.innerHTML = `
-                    <div class="slide-content">
-                        <h2 contenteditable="false">${slideData.title}</h2>
-                        <div class="visual-placeholder">${slideData.visual}</div>
-                        ${contentHTML}
+            // Create visual placeholder with + button
+            const hasImage = slideData.image_url;
+            const visualContent = hasImage ? 
+                `<img src="${slideData.image_url}" alt="${slideData.visual}" style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-lg);">` :
+                slideData.visual;
+
+            slide.innerHTML = `
+                <div class="slide-content">
+                    <h2 contenteditable="false">${slideData.title}</h2>
+                    <div class="visual-placeholder ${hasImage ? 'has-image' : ''}" data-slide-index="${index}">
+                        ${visualContent}
+                        <div class="image-upload-btn" data-slide-index="${index}">+</div>
                     </div>
-                `;
-            }
+                    ${contentHTML}
+                </div>
+            `;
+        }
 
-            slidesContainer.appendChild(slide);
+        slidesContainer.appendChild(slide);
 
-            // Create navigation item
-            if (navItemsContainer) {
-                const navItem = document.createElement('div');
-                navItem.className = 'slide-nav-item';
-                navItem.textContent = slideData.title;
-                navItem.addEventListener('click', () => goToSlide(index));
-                navItemsContainer.appendChild(navItem);
-            }
-        });
-
-        // Get reference to all slides and nav items
-        slides = document.querySelectorAll('.slide');
-        const navItems = document.querySelectorAll('.slide-nav-item');
-
-        // Activate first slide
-        goToSlide(0);
+        // Create navigation item
+        if (navItemsContainer) {
+            const navItem = document.createElement('div');
+            navItem.className = 'slide-nav-item';
+            navItem.textContent = slideData.title;
+            navItem.addEventListener('click', () => goToSlide(index));
+            navItemsContainer.appendChild(navItem);
+        }
     }
 
     // Navigate to slide - MAKE THIS GLOBAL
@@ -127,8 +173,155 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.hash = `slide-${index + 1}`;
     }
 
+    // Auto-save functionality
+    function setupAutoSave() {
+        const editableElements = document.querySelectorAll('[contenteditable="true"]');
+        
+        editableElements.forEach(element => {
+            element.addEventListener('input', debounce(() => {
+                saveSlideContent();
+            }, 1000));
+
+            element.addEventListener('blur', () => {
+                saveSlideContent();
+            });
+        });
+    }
+
+    function debounce(func, wait) {
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(saveTimeout);
+                func(...args);
+            };
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(later, wait);
+        };
+    }
+
+    async function saveSlideContent() {
+        if (!editMode) return;
+
+        const currentIndex = window.currentSlide;
+        const slide = slides[currentIndex];
+        if (!slide) return;
+
+        try {
+            const slideId = slide.dataset.slideId || currentIndex;
+            const title = slide.querySelector('h2')?.textContent || slide.querySelector('h1')?.textContent || '';
+            
+            // Extract content based on slide type
+            let content = {};
+            if (slide.classList.contains('title-slide')) {
+                content = {
+                    type: 'title',
+                    title: slide.querySelector('h1')?.textContent || '',
+                    subtitle: slide.querySelector('h2')?.textContent || '',
+                    tagline: slide.querySelector('p')?.textContent || ''
+                };
+            } else {
+                const sections = [];
+                const sectionElements = slide.querySelectorAll('h3');
+                
+                sectionElements.forEach(sectionEl => {
+                    const section = {
+                        title: sectionEl.textContent || ''
+                    };
+                    
+                    const nextEl = sectionEl.nextElementSibling;
+                    if (nextEl && nextEl.tagName === 'UL') {
+                        section.list = Array.from(nextEl.querySelectorAll('li')).map(li => li.textContent);
+                    } else if (nextEl && nextEl.tagName === 'P') {
+                        section.content = nextEl.textContent;
+                    }
+                    
+                    sections.push(section);
+                });
+                
+                content = {
+                    type: 'content',
+                    title: title,
+                    sections: sections,
+                    visual: slide.querySelector('.visual-placeholder')?.textContent || ''
+                };
+            }
+
+            const response = await fetch(`/api/slides/${slideId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    title: title,
+                    content: content
+                })
+            });
+
+            if (response.ok) {
+                console.log('Slide content saved');
+            } else {
+                console.error('Failed to save slide content');
+            }
+        } catch (error) {
+            console.error('Error saving slide:', error);
+        }
+    }
+
+    // Setup image upload buttons
+    function setupImageUpload() {
+        document.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('image-upload-btn')) {
+                const slideIndex = e.target.dataset.slideIndex;
+                await showImageUploadForSlide(slideIndex);
+            }
+        });
+    }
+
+    async function showImageUploadForSlide(slideIndex) {
+        const imageUrl = prompt('Enter image URL:');
+        if (imageUrl && imageUrl.trim()) {
+            await saveImageForSlide(slideIndex, imageUrl.trim());
+        }
+    }
+
+    async function saveImageForSlide(slideIndex, imageUrl) {
+        try {
+            const slide = slides[slideIndex];
+            const slideId = slide.dataset.slideId || slideIndex;
+
+            const response = await fetch(`/api/slides/${slideId}/image`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    imageUrl: imageUrl
+                })
+            });
+
+            if (response.ok) {
+                // Update the visual placeholder
+                const visualPlaceholder = slide.querySelector('.visual-placeholder');
+                visualPlaceholder.classList.add('has-image');
+                visualPlaceholder.innerHTML = `
+                    <img src="${imageUrl}" alt="Slide image" style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-lg);">
+                    <div class="image-upload-btn" data-slide-index="${slideIndex}">+</div>
+                `;
+                
+                alert('Image saved successfully!');
+            } else {
+                alert('Failed to save image');
+            }
+        } catch (error) {
+            console.error('Error saving image:', error);
+            alert('Error saving image');
+        }
+    }
+
     // Initialize the slides
-    initSlides();
+    initSlides().then(() => {
+        setupImageUpload();
+    });
 
     // Toggle navigation
     if (toggleNav) {
@@ -210,15 +403,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Export options - REMOVE the basic PDF function since we have pdf-export.js
+    // Export options
     exportOptions.forEach(option => {
         option.addEventListener('click', () => {
             const format = option.getAttribute('data-format');
             if (format === 'pdf') {
-                // This will be handled by pdf-export.js
                 console.log('PDF export triggered');
             } else if (format === 'png') {
-                // This will be handled by pdf-export.js
                 console.log('PNG export triggered');
             } else {
                 alert(`${format.toUpperCase()} export would require additional processing. For now, please use the PDF export.`);
@@ -251,6 +442,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (editToggle.classList) {
                 editToggle.classList.toggle('active', editMode);
             }
+
+            // Setup auto-save when entering edit mode
+            if (editMode) {
+                setupAutoSave();
+            }
         });
     }
 
@@ -269,5 +465,4 @@ document.addEventListener('DOMContentLoaded', function() {
     checkUrlForSlide();
 
     console.log('Ziver Pitch Deck initialized successfully');
-    console.log(`Total slides: ${slides.length}`);
 });
