@@ -1,3 +1,4 @@
+// js/script.js - UPDATED VERSION
 document.addEventListener('DOMContentLoaded', function() {
     // Elements
     const slideNav = document.getElementById('slideNav');
@@ -15,12 +16,12 @@ document.addEventListener('DOMContentLoaded', function() {
     let editMode = false;
     let slides = [];
 
-    // Initialize slides using the external slidesData
+    // Initialize slides using the external slidesData from content.js
     function initSlides() {
         // Clear existing slides
         slidesContainer.innerHTML = '';
 
-        // Create all slides from the slidesData
+        // Create all slides from the slidesData (now in content.js)
         slidesData.forEach((slideData, index) => {
             const slide = document.createElement('div');
             slide.className = 'slide';
@@ -33,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <h1 contenteditable="false">${slideData.title}</h1>
                         <h2 contenteditable="false">${slideData.subtitle}</h2>
                         <p contenteditable="false">${slideData.tagline}</p>
-                        <p contenteditable="false">${slideData.presenter}</p>
+                        ${slideData.presenter ? `<p contenteditable="false">${slideData.presenter}</p>` : ''}
                     </div>
                 `;
             } else {
@@ -101,8 +102,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Update URL hash
         window.location.hash = `slide-${index + 1}`;
-
-        console.log(`Navigated to slide ${index + 1}`);
     }
 
     // Initialize the slides
@@ -157,12 +156,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const swipeThreshold = 50;
 
         if (touchEndX < touchStartX - swipeThreshold) {
-            // Swipe left - next slide
             goToSlide(currentSlide + 1);
         }
 
         if (touchEndX > touchStartX + swipeThreshold) {
-            // Swipe right - previous slide
             goToSlide(currentSlide - 1);
         }
     }
@@ -175,7 +172,11 @@ document.addEventListener('DOMContentLoaded', function() {
     exportOptions.forEach(option => {
         option.addEventListener('click', () => {
             const format = option.getAttribute('data-format');
-            exportDeck(format);
+            if (format === 'pdf') {
+                exportToPDF();
+            } else {
+                alert(`${format.toUpperCase()} export would require additional processing. For now, please use the PDF export.`);
+            }
             exportModal.classList.remove('active');
         });
     });
@@ -187,220 +188,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Export function
-    function exportDeck(format) {
-        switch(format) {
-            case 'pdf':
-                exportToPDF();
-                break;
-            case 'png':
-                exportToPNG();
-                break;
-            case 'pptx':
-                alert('PowerPoint export would require server-side processing. For now, you can use the PDF export.');
-                break;
-        }
-    }
-
+    // Basic PDF export (will be enhanced in pdf-export.js)
     function exportToPDF() {
-        console.log('Starting PDF export...');
-        
-        // Store current state
-        const originalStates = [];
-        slides.forEach((slide, index) => {
-            originalStates[index] = {
-                display: slide.style.display,
-                position: slide.style.position,
-                opacity: slide.style.opacity,
-                transform: slide.style.transform
-            };
-        });
-
-        // Show all slides temporarily
-        slides.forEach(slide => {
-            slide.style.display = 'block';
-            slide.style.position = 'relative';
-            slide.style.opacity = '1';
-            slide.style.transform = 'none';
-        });
-
-        // Create a container for export
-        const exportContainer = document.createElement('div');
-        exportContainer.className = 'pdf-export-container';
-        exportContainer.style.width = '100%';
-        exportContainer.style.padding = '20px';
-        exportContainer.style.backgroundColor = 'white';
-        
-        // Clone all slides for export
-        slides.forEach(slide => {
-            const clone = slide.cloneNode(true);
-            clone.style.display = 'block';
-            clone.style.position = 'relative';
-            clone.style.opacity = '1';
-            clone.style.transform = 'none';
-            clone.style.width = '100%';
-            clone.style.marginBottom = '40px';
-            clone.style.padding = '40px';
-            clone.style.boxSizing = 'border-box';
-            exportContainer.appendChild(clone);
-        });
-
-        // Add to document temporarily
-        exportContainer.style.position = 'absolute';
-        exportContainer.style.left = '-9999px';
-        document.body.appendChild(exportContainer);
-
-        // Export options
-        const opt = {
-            margin: 15,
-            filename: 'ziver-pitch-deck.pdf',
-            image: { 
-                type: 'jpeg', 
-                quality: 0.98 
-            },
-            html2canvas: { 
-                scale: 2,
-                logging: false,
-                useCORS: true,
-                backgroundColor: '#121212'
-            },
-            jsPDF: { 
-                unit: 'mm', 
-                format: 'a4', 
-                orientation: 'landscape' 
-            }
-        };
-
-        // Create PDF
-        html2pdf().set(opt).from(exportContainer).save().then(() => {
-            // Clean up
-            document.body.removeChild(exportContainer);
-            
-            // Restore original states
-            slides.forEach((slide, index) => {
-                if (originalStates[index]) {
-                    slide.style.display = originalStates[index].display;
-                    slide.style.position = originalStates[index].position;
-                    slide.style.opacity = originalStates[index].opacity;
-                    slide.style.transform = originalStates[index].transform;
-                }
-            });
-            
-            // Reactivate current slide
-            goToSlide(currentSlide);
-            
-            console.log('PDF export completed');
-        }).catch(error => {
-            console.error('PDF export error:', error);
-            document.body.removeChild(exportContainer);
-            
-            // Restore original states even if error occurs
-            slides.forEach((slide, index) => {
-                if (originalStates[index]) {
-                    slide.style.display = originalStates[index].display;
-                    slide.style.position = originalStates[index].position;
-                    slide.style.opacity = originalStates[index].opacity;
-                    slide.style.transform = originalStates[index].transform;
-                }
-            });
-            
-            goToSlide(currentSlide);
-        });
-    }
-
-    function exportToPNG() {
-        console.log('Starting PNG export...');
-        
-        // Store current state
-        const originalStates = [];
-        slides.forEach((slide, index) => {
-            originalStates[index] = {
-                display: slide.style.display,
-                position: slide.style.position,
-                opacity: slide.style.opacity,
-                transform: slide.style.transform
-            };
-        });
-
-        // Show all slides temporarily
-        slides.forEach(slide => {
-            slide.style.display = 'block';
-            slide.style.position = 'relative';
-            slide.style.opacity = '1';
-            slide.style.transform = 'none';
-        });
-
-        // Create a container for export
-        const exportContainer = document.createElement('div');
-        exportContainer.className = 'png-export-container';
-        exportContainer.style.width = '100%';
-        exportContainer.style.padding = '20px';
-        exportContainer.style.backgroundColor = '#121212';
-        
-        // Clone all slides for export
-        slides.forEach(slide => {
-            const clone = slide.cloneNode(true);
-            clone.style.display = 'block';
-            clone.style.position = 'relative';
-            clone.style.opacity = '1';
-            clone.style.transform = 'none';
-            clone.style.width = '100%';
-            clone.style.marginBottom = '40px';
-            clone.style.padding = '40px';
-            clone.style.boxSizing = 'border-box';
-            exportContainer.appendChild(clone);
-        });
-
-        // Add to document temporarily
-        exportContainer.style.position = 'absolute';
-        exportContainer.style.left = '-9999px';
-        document.body.appendChild(exportContainer);
-
-        // Create PNG
-        html2canvas(exportContainer, {
-            scale: 2,
-            logging: false,
-            useCORS: true,
-            backgroundColor: '#121212'
-        }).then(canvas => {
-            const link = document.createElement('a');
-            link.download = 'ziver-pitch-deck.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            
-            // Clean up
-            document.body.removeChild(exportContainer);
-            
-            // Restore original states
-            slides.forEach((slide, index) => {
-                if (originalStates[index]) {
-                    slide.style.display = originalStates[index].display;
-                    slide.style.position = originalStates[index].position;
-                    slide.style.opacity = originalStates[index].opacity;
-                    slide.style.transform = originalStates[index].transform;
-                }
-            });
-            
-            // Reactivate current slide
-            goToSlide(currentSlide);
-            
-            console.log('PNG export completed');
-        }).catch(error => {
-            console.error('PNG export error:', error);
-            document.body.removeChild(exportContainer);
-            
-            // Restore original states even if error occurs
-            slides.forEach((slide, index) => {
-                if (originalStates[index]) {
-                    slide.style.display = originalStates[index].display;
-                    slide.style.position = originalStates[index].position;
-                    slide.style.opacity = originalStates[index].opacity;
-                    slide.style.transform = originalStates[index].transform;
-                }
-            });
-            
-            goToSlide(currentSlide);
-        });
+        console.log('PDF export triggered - enhanced version will be in pdf-export.js');
+        // For now, use basic alert
+        alert('Enhanced PDF export is being implemented. For now, you can use browser print to PDF.');
     }
 
     // Toggle edit mode
@@ -442,7 +234,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize based on URL
     checkUrlForSlide();
 
-    // Debugging: Log when script is loaded
-    console.log('Script loaded successfully');
+    console.log('Ziver Pitch Deck initialized successfully');
     console.log(`Total slides: ${slides.length}`);
 });
