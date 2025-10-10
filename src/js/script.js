@@ -1,4 +1,4 @@
-// js/script.js - FIXED RELOAD SLIDE ISSUE
+// js/script.js - FIXED RELOAD SLIDE ISSUE AND NAVIGATION
 document.addEventListener('DOMContentLoaded', function() {
     // Elements
     const slideNav = document.getElementById('slideNav');
@@ -123,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input type="file" accept="image/*" style="display: none;">
                 </div>
             `;
-            
+
             const deleteButton = `
                 <div class="image-delete-btn" data-slide-order="${index}" title="Delete image">
                     <span>×</span>
@@ -143,9 +143,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         slidesContainer.appendChild(slide);
-        return slide; // FIX: Return the created slide element
 
-        // Create navigation item
+        // Create navigation item - FIXED: MOVED BEFORE RETURN
         if (navItemsContainer) {
             const navItem = document.createElement('div');
             navItem.className = 'slide-nav-item';
@@ -153,6 +152,8 @@ document.addEventListener('DOMContentLoaded', function() {
             navItem.addEventListener('click', () => goToSlide(index));
             navItemsContainer.appendChild(navItem);
         }
+
+        return slide; // FIX: Return the created slide element AFTER nav item creation
     }
 
     // Navigate to slide - MAKE THIS GLOBAL
@@ -190,11 +191,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update buttons when edit mode changes
     function updateImageButtons() {
         const visualPlaceholders = document.querySelectorAll('.visual-placeholder');
-        
+
         visualPlaceholders.forEach(placeholder => {
             const slideOrder = placeholder.dataset.slideOrder;
             const hasImage = placeholder.classList.contains('has-image');
-            
+
             if (editMode) {
                 // In edit mode, show appropriate button
                 if (hasImage) {
@@ -228,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Auto-save functionality
     function setupAutoSave() {
         const editableElements = document.querySelectorAll('[contenteditable="true"]');
-        
+
         editableElements.forEach(element => {
             element.addEventListener('input', debounce(() => {
                 saveSlideContent();
@@ -261,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const slideOrder = slide.dataset.slideOrder || currentIndex;
             const title = slide.querySelector('h2')?.textContent || slide.querySelector('h1')?.textContent || '';
-            
+
             // Extract content based on slide type
             let content = {};
             if (slide.classList.contains('title-slide')) {
@@ -274,22 +275,22 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 const sections = [];
                 const sectionElements = slide.querySelectorAll('h3');
-                
+
                 sectionElements.forEach(sectionEl => {
                     const section = {
                         title: sectionEl.textContent || ''
                     };
-                    
+
                     const nextEl = sectionEl.nextElementSibling;
                     if (nextEl && nextEl.tagName === 'UL') {
                         section.list = Array.from(nextEl.querySelectorAll('li')).map(li => li.textContent);
                     } else if (nextEl && nextEl.tagName === 'P') {
                         section.content = nextEl.textContent;
                     }
-                    
+
                     sections.push(section);
                 });
-                
+
                 content = {
                     type: 'content',
                     title: title,
@@ -310,7 +311,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             const result = await response.json();
-            
+
             if (result.success) {
                 console.log('Slide content saved successfully');
             } else {
@@ -325,7 +326,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function setupImageButtons() {
         document.addEventListener('click', (e) => {
             const slideOrder = e.target.closest('[data-slide-order]')?.dataset.slideOrder;
-            
+
             if (!slideOrder) return;
 
             // Handle upload button click
@@ -334,7 +335,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const fileInput = uploadBtn.querySelector('input[type="file"]');
                 fileInput?.click();
             }
-            
+
             // Handle delete button click
             else if (e.target.classList.contains('image-delete-btn') || e.target.closest('.image-delete-btn')) {
                 if (confirm('Are you sure you want to delete this image?')) {
@@ -348,11 +349,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target.type === 'file' && e.target.files.length > 0) {
                 const file = e.target.files[0];
                 const slideOrder = e.target.closest('.image-upload-btn')?.dataset.slideOrder;
-                
+
                 if (slideOrder !== undefined && file) {
                     await uploadImageForSlide(slideOrder, file);
                 }
-                
+
                 // Reset file input
                 e.target.value = '';
             }
