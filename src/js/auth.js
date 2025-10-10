@@ -1,4 +1,4 @@
-// js/auth.js - UPDATED WITH BETTER TAP LOGIC
+// js/auth.js - UPDATED WITHOUT TOP UPLOAD BUTTON
 class SecretAuth {
     constructor() {
         this.currentUser = null;
@@ -46,7 +46,7 @@ class SecretAuth {
             border: 1px solid var(--primary);
             box-shadow: 0 2px 10px rgba(0, 230, 118, 0.3);
         `;
-        
+
         dot.addEventListener('click', (e) => {
             e.stopPropagation();
             this.handleSecretTap();
@@ -71,13 +71,13 @@ class SecretAuth {
 
     handleSecretTap() {
         const now = Date.now();
-        
+
         // Reset if more than 1 second between taps
         if (now - this.lastTapTime > 1000) {
             this.tapCount = 0;
             this.clearTapTimeout();
         }
-        
+
         this.tapCount++;
         this.lastTapTime = now;
 
@@ -153,13 +153,13 @@ class SecretAuth {
     async authenticateUser(email, action, name = null) {
         try {
             console.log(`Authenticating user: ${email}, action: ${action}`);
-            
+
             // For demo purposes - you can replace this with actual API call
             if (action === 'login') {
                 // Check if user exists in localStorage
                 const users = JSON.parse(localStorage.getItem('pitchDeckUsers') || '[]');
                 const user = users.find(u => u.email === email);
-                
+
                 if (user) {
                     this.currentUser = user;
                     localStorage.setItem('pitchDeckCurrentUser', JSON.stringify(user));
@@ -178,16 +178,16 @@ class SecretAuth {
                     is_admin: users.length === 0, // First user becomes admin
                     created_at: new Date().toISOString()
                 };
-                
+
                 users.push(newUser);
                 localStorage.setItem('pitchDeckUsers', JSON.stringify(users));
                 localStorage.setItem('pitchDeckCurrentUser', JSON.stringify(newUser));
-                
+
                 this.currentUser = newUser;
                 this.enableAdminFeatures();
                 alert(`✅ Registration successful! ${newUser.is_admin ? 'You are now an admin.' : 'Welcome!'}`);
             }
-            
+
         } catch (error) {
             console.error('Auth error:', error);
             alert('❌ Authentication error. Please try again.');
@@ -219,15 +219,12 @@ class SecretAuth {
 
     enableAdminFeatures() {
         console.log('Enabling admin features');
-        
-        // Show edit button
+
+        // Show edit button only - no upload button
         const editToggle = document.getElementById('editToggle');
         if (editToggle) {
             editToggle.style.display = 'flex';
         }
-
-        // Enable image upload features
-        this.enableImageUpload();
 
         // Update dot color for admin
         const dot = document.getElementById('secretAuthDot');
@@ -235,19 +232,17 @@ class SecretAuth {
             dot.style.background = 'rgba(0, 230, 118, 0.3)';
             dot.style.color = '#00e676';
         }
+        
+        console.log('Admin features enabled - Edit mode available');
     }
 
     disableAdminFeatures() {
         console.log('Disabling admin features');
-        
+
+        // Hide edit button only
         const editToggle = document.getElementById('editToggle');
         if (editToggle) {
             editToggle.style.display = 'none';
-        }
-
-        const uploadBtn = document.getElementById('uploadImageBtn');
-        if (uploadBtn) {
-            uploadBtn.remove();
         }
 
         // Reset dot color
@@ -255,25 +250,8 @@ class SecretAuth {
         if (dot) {
             dot.style.background = 'rgba(0, 230, 118, 0.1)';
         }
-    }
-
-    enableImageUpload() {
-        const header = document.querySelector('.header .controls');
-        if (header && !document.getElementById('uploadImageBtn')) {
-            const uploadBtn = document.createElement('button');
-            uploadBtn.id = 'uploadImageBtn';
-            uploadBtn.className = 'btn btn-outline';
-            uploadBtn.innerHTML = '🖼️ Add Image';
-            uploadBtn.addEventListener('click', () => this.showImageUpload());
-            header.appendChild(uploadBtn);
-        }
-    }
-
-    showImageUpload() {
-        const imageModal = document.getElementById('imageUploadModal');
-        if (imageModal) {
-            imageModal.classList.add('active');
-        }
+        
+        console.log('Admin features disabled');
     }
 
     logout() {
