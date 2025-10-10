@@ -17,6 +17,8 @@
   "author": "Zaidu",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.21.2"
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "pg": "^8.16.3"
   }
 }
