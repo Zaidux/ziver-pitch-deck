@@ -72,38 +72,39 @@
         </div>
     </div>
 
-    <!-- Scripts -->
+    <!-- Image Upload Modal -->
+    <div class="modal" id="imageUploadModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Upload Image</h3>
+                <button class="close-modal" id="closeImageModal">✕</button>
+            </div>
+            <div class="upload-options">
+                <div class="upload-section">
+                    <label for="imageUpload">Choose Image</label>
+                    <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                    <button class="btn btn-outline" onclick="document.getElementById('imageUpload').click()">
+                        📁 Select File
+                    </button>
+                </div>
+                <div class="upload-section">
+                    <label for="imageUrl">Or Enter URL</label>
+                    <input type="url" id="imageUrl" placeholder="https://example.com/image.jpg" class="form-input">
+                </div>
+                <div class="upload-actions">
+                    <button class="btn btn-primary" id="insertImage">Insert Image</button>
+                    <button class="btn btn-outline" id="cancelUpload">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts - CORRECT ORDER -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="/src/data/content.js"></script>
     <script src="/src/js/script.js"></script>
+    <script src="/src/js/auth.js"></script> <!-- ADD THIS LINE -->
     <script src="/src/js/pdf-export.js"></script>
-
-    <!-- Image Upload Modal -->
-<div class="modal" id="imageUploadModal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 class="modal-title">Upload Image</h3>
-            <button class="close-modal" id="closeImageModal">✕</button>
-        </div>
-        <div class="upload-options">
-            <div class="upload-section">
-                <label for="imageUpload">Choose Image</label>
-                <input type="file" id="imageUpload" accept="image/*" style="display: none;">
-                <button class="btn btn-outline" onclick="document.getElementById('imageUpload').click()">
-                    📁 Select File
-                </button>
-            </div>
-            <div class="upload-section">
-                <label for="imageUrl">Or Enter URL</label>
-                <input type="url" id="imageUrl" placeholder="https://example.com/image.jpg" class="form-input">
-            </div>
-            <div class="upload-actions">
-                <button class="btn btn-primary" id="insertImage">Insert Image</button>
-                <button class="btn btn-outline" id="cancelUpload">Cancel</button>
-            </div>
-        </div>
-    </div>
-</div>
 </body>
 </html>
