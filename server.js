@@ -1,4 +1,4 @@
-// server.js - Updated with Database
+// server.js - UPDATED WITH SLIDE SAVING
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -27,7 +27,7 @@ async function initializeDatabase() {
             )
         `);
 
-        // Create slides table
+        // Create slides table with content storage
         await pool.query(`
             CREATE TABLE IF NOT EXISTS slides (
                 id SERIAL PRIMARY KEY,
@@ -35,9 +35,17 @@ async function initializeDatabase() {
                 title TEXT NOT NULL,
                 content JSONB,
                 image_url TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // Insert default slides if empty
+        const slideCount = await pool.query('SELECT COUNT(*) FROM slides');
+        if (parseInt(slideCount.rows[0].count) === 0) {
+            console.log('Inserting default slides...');
+            // You can initialize with your default content here
+        }
 
         console.log('Database initialized successfully');
     } catch (error) {
@@ -51,11 +59,12 @@ app.use(express.static('public'));
 app.use('/src', express.static('src'));
 
 // API Routes
+
 // User authentication
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { email } = req.body;
-        
+
         const result = await pool.query(
             'SELECT * FROM users WHERE email = $1',
             [email]
@@ -82,8 +91,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { email, name } = req.body;
-        
-        // First user becomes admin
+
         const userCount = await pool.query('SELECT COUNT(*) FROM users');
         const isAdmin = parseInt(userCount.rows[0].count) === 0;
 
@@ -116,38 +124,64 @@ app.get('/api/slides', async (req, res) => {
     }
 });
 
+app.put('/api/slides/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title, content, image_url } = req.body;
+
+        const result = await pool.query(
+            `UPDATE slides 
+             SET title = $1, content = $2, image_url = $3, updated_at = CURRENT_TIMESTAMP 
+             WHERE id = $4 
+             RETURNING *`,
+            [title, content, image_url, id]
+        );
+
+        res.json({ success: true, slide: result.rows[0] });
+    } catch (error) {
+        console.error('Update slide error:', error);
+        res.status(500).json({ error: 'Failed to update slide' });
+    }
+});
+
 app.post('/api/slides/:id/image', async (req, res) => {
     try {
         const { id } = req.params;
         const { imageUrl } = req.body;
-        
-        await pool.query(
-            'UPDATE slides SET image_url = $1 WHERE id = $2',
+
+        const result = await pool.query(
+            'UPDATE slides SET image_url = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
             [imageUrl, id]
         );
-        
-        res.json({ success: true });
+
+        res.json({ success: true, slide: result.rows[0] });
     } catch (error) {
         console.error('Update image error:', error);
         res.status(500).json({ error: 'Failed to update image' });
     }
 });
 
-// PowerPoint export endpoint
-app.post('/api/export/pptx', async (req, res) => {
+// Initialize slides with default content
+app.post('/api/slides/initialize', async (req, res) => {
     try {
         const { slidesData } = req.body;
         
-        // For now, return a success message
-        // In production, you'd use a library like pptxgenjs
-        res.json({ 
-            success: true, 
-            message: 'PowerPoint export feature will be implemented soon',
-            slidesCount: slidesData.length 
-        });
+        // Clear existing slides
+        await pool.query('DELETE FROM slides');
+        
+        // Insert new slides
+        for (let i = 0; i < slidesData.length; i++) {
+            const slide = slidesData[i];
+            await pool.query(
+                'INSERT INTO slides (slide_order, title, content) VALUES ($1, $2, $3)',
+                [i, slide.title || `Slide ${i + 1}`, slide]
+            );
+        }
+        
+        res.json({ success: true, message: 'Slides initialized' });
     } catch (error) {
-        console.error('PPTX export error:', error);
-        res.status(500).json({ error: 'PPTX export failed' });
+        console.error('Initialize slides error:', error);
+        res.status(500).json({ error: 'Failed to initialize slides' });
     }
 });
 
