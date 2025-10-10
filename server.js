@@ -1,4 +1,4 @@
-// server.js - FIXED WITH PROPER SAVING AND FILE UPLOAD
+// server.js - FIXED IMAGE PERSISTENCE AND ADD DELETE
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -278,7 +278,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-// Slides management
+// Slides management - FIXED: Properly handle image_url loading
 app.get('/api/slides', async (req, res) => {
     try {
         const result = await pool.query(
@@ -305,15 +305,15 @@ app.get('/api/slides', async (req, res) => {
         const mergedSlides = defaultSlidesData.map((defaultSlide, index) => {
             const dbSlide = dbSlides.find(slide => slide.slide_order === index);
             
-            if (dbSlide && dbSlide.content) {
+            if (dbSlide) {
                 // Use database content but ensure we have all required fields
                 const mergedContent = {
                     ...defaultSlide, // Start with default
-                    ...dbSlide.content, // Override with database content
+                    ...(dbSlide.content || {}), // Override with database content if exists
                     // Ensure we preserve the structure
-                    title: dbSlide.content.title || defaultSlide.title,
-                    sections: dbSlide.content.sections || defaultSlide.sections,
-                    visual: dbSlide.content.visual || defaultSlide.visual
+                    title: (dbSlide.content && dbSlide.content.title) || dbSlide.title || defaultSlide.title,
+                    sections: (dbSlide.content && dbSlide.content.sections) || defaultSlide.sections,
+                    visual: (dbSlide.content && dbSlide.content.visual) || defaultSlide.visual
                 };
                 
                 return {
@@ -321,7 +321,7 @@ app.get('/api/slides', async (req, res) => {
                     slide_order: index,
                     title: dbSlide.title,
                     content: mergedContent,
-                    image_url: dbSlide.image_url,
+                    image_url: dbSlide.image_url, // This is the key fix - use the stored image_url
                     created_at: dbSlide.created_at,
                     updated_at: dbSlide.updated_at
                 };
@@ -454,6 +454,45 @@ app.post('/api/slides/:order/image', async (req, res) => {
     }
 });
 
+// Delete image endpoint
+app.delete('/api/slides/:order/image', async (req, res) => {
+    try {
+        const { order } = req.params;
+
+        console.log(`Deleting image for slide ${order}`);
+
+        // Get current image URL to delete the file
+        const currentSlide = await pool.query(
+            'SELECT image_url FROM slides WHERE slide_order = $1',
+            [order]
+        );
+
+        if (currentSlide.rows.length > 0 && currentSlide.rows[0].image_url) {
+            const imageUrl = currentSlide.rows[0].image_url;
+            // Delete the physical file
+            if (imageUrl.startsWith('/uploads/')) {
+                const filePath = path.join(__dirname, 'public', imageUrl);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                    console.log(`Deleted file: ${filePath}`);
+                }
+            }
+        }
+
+        // Update database to remove image reference
+        const result = await pool.query(
+            'UPDATE slides SET image_url = NULL, updated_at = CURRENT_TIMESTAMP WHERE slide_order = $1 RETURNING *',
+            [order]
+        );
+
+        res.json({ success: true, slide: result.rows[0] });
+
+    } catch (error) {
+        console.error('Delete image error:', error);
+        res.status(500).json({ error: 'Failed to delete image: ' + error.message });
+    }
+});
+
 // Serve main app
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/index.html'));
@@ -464,6 +503,7 @@ initializeDatabase().then(() => {
     app.listen(port, () => {
         console.log(`Ziver pitch deck running at http://localhost:${port}`);
         console.log('File uploads enabled at /api/upload/image');
+        console.log('Image delete enabled at /api/slides/:order/image');
         console.log('Database integration: Edits will be saved, default content always available');
     });
 });
