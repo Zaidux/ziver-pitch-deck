@@ -1,4 +1,4 @@
-// server.js - UPDATED WITH SLIDE SAVING
+// server.js - FIXED WITH PROPER FALLBACK TO CONTENT.JS
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -12,6 +12,145 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
+
+// Default slides data (fallback)
+const defaultSlidesData = [
+    {
+        type: 'title',
+        title: 'Ziver: The Zenith of Adaptive Intelligence',
+        subtitle: 'Unlocking Verifiable Value & Financial Inclusion with Causal AI',
+        tagline: 'A multi-blockchain platform built on a revolutionary, proprietary Explainable AI (ZAIE) that translates user participation and reputation into verifiable financial utility.',
+        presenter: ''
+    },
+    {
+        title: 'The Problem: The Two-Part Trust Deficit',
+        visual: 'Split visual: AI Black Box vs Financial Exclusion',
+        sections: [
+            {
+                title: 'A. The AI Trust Crisis: The Hallucination & Reasoning Gap',
+                list: [
+                    'Current LLMs operate on statistical correlations, not true causal reasoning',
+                    'Hallucination & Inaccuracy: Models confidently generate fabricated outputs',
+                    'Opaque "Black Box" decisions prevent deployment in high-stakes industries (finance, law, medicine)',
+                    'Unsustainable Scaling: Reliance on brute-force, parameter-intensive calculations'
+                ]
+            },
+            {
+                title: 'B. The Web3 Adoption Barrier: Lack of Verifiable Human Capital',
+                list: [
+                    'High Barrier to Entry: DeFi access is gated by capital collateral, excluding the unbanked',
+                    'Untapped Value: User activity, loyalty, and reputation hold no tangible financial value'
+                ]
+            }
+        ]
+    },
+    {
+        title: 'The Solution: Ziver & The Zenith Protocol',
+        visual: 'Three pillars diagram: ZAIE → Social Capital Score → SEB-DeFi',
+        sections: [
+            {
+                title: 'Bridging the trust gap with transparent, causal AI',
+                list: [
+                    '<strong>Zenith AI (ZAIE):</strong> Adaptive Self-Regulating Explainable Hybrid Algorithm for genuine causal reasoning',
+                    '<strong>Social Capital Score (SCS):</strong> Transparent, on-chain reputation from user contributions',
+                    '<strong>SEB-DeFi Protocol:</strong> Novel DeFi primitive using SCS, not just collateral, for financial access'
+                ]
+            }
+        ]
+    },
+    {
+        title: 'Core Technology: Ziver Adaptive Intelligence Engine (ZAIE)',
+        visual: 'ASREH Architecture: SSWM (Eye) → ARLC (Brain) → EM (Mouth)',
+        sections: [
+            {
+                title: 'Three-module ASREH architecture for explainable AI',
+                list: [
+                    '<strong>Self-Supervised World Model (SSWM) - The Eye:</strong> Observes data and makes proactive predictions',
+                    '<strong>Adaptive Reasoning & Learning Controller (ARLC) - The Brain:</strong> Simulates possibilities and makes strategic decisions',
+                    '<strong>Explainability Module (EM) - The Mouth:</strong> Provides human-readable justifications for every decision',
+                    '<strong>Hyper-Conceptual Thinking (HCT):</strong> Forms novel concepts for emergent intelligence beyond training data'
+                ]
+            }
+        ]
+    },
+    {
+        title: 'The Product & Ecosystem: $ZIV Coin Utility',
+        visual: 'Ecosystem map with $ZIV token at center connecting all utilities',
+        sections: [
+            {
+                title: '$ZIV Coin (Total Supply: 45 Billion) powers the entire ecosystem',
+                list: [
+                    '<strong>Social & Engagement-Backed DeFi (SEB-DeFi):</strong> Sharia-compliant, Riba-free model with transparent Ujrah fees',
+                    '<strong>Job Marketplace & SCAID:</strong> Gig Jobs, Micro-Tasks, Compute Provision, Data Monetization',
+                    '<strong>Reward Mechanism:</strong> Incentivizes contributions that build Social Capital Score',
+                    '<strong>Payment Gateway:</strong> Low-cost, instant crypto transactions',
+                    '<strong>Gaming & NFT Marketplace:</strong> Achievements as Engagement-Backed Collateral'
+                ]
+            }
+        ]
+    },
+    {
+        title: 'Tokenomics & Financial Strategy',
+        visual: 'Pie chart showing token allocation percentages',
+        sections: [
+            {
+                title: 'Designed for long-term sustainability and market stability',
+                list: [
+                    '<strong>Community & Ecosystem Rewards:</strong> 22.23% (10B $ZIV) - Released over years',
+                    '<strong>Public Sale:</strong> 9.015% - 6-month linear vesting',
+                    '<strong>Ecosystem Development:</strong> 10% - Milestone-based unlocks',
+                    '<strong>Liquidity Pool:</strong> 10% - DEX/CEX provision',
+                    '<strong>Team & Founders:</strong> 8% - 4-year vesting with 1-year cliff',
+                    '<strong>Controlled Release:</strong> Initial circulating supply 0.22%-0.27% for stable growth'
+                ]
+            }
+        ]
+    },
+    {
+        title: 'Traction, Proof of Concept & Vision',
+        visual: 'Tetris simulation with AI explanation bubbles',
+        sections: [
+            {
+                title: 'Proof of Concept: ASREH Algorithm Validation',
+                list: [
+                    'Successfully demonstrated in Tetris environment',
+                    'Algorithm made optimal decisions with multi-layered explanations',
+                    'Proved capability for explainable, causal reasoning with counterfactuals'
+                ]
+            },
+            {
+                title: 'Vision: Foundation for Trust and Inclusion',
+                content: 'Empowering global community through accessible, transparent platform that rewards participation and promotes true financial inclusion'
+            },
+            {
+                title: 'Current Status: Live Product',
+                content: 'Telegram Mini-App deployed on AWS, in final testing with initial user cohort. This is a functioning product today.'
+            }
+        ]
+    },
+    {
+        title: 'The Team & The Ask',
+        visual: 'Team structure and fund allocation chart',
+        sections: [
+            {
+                title: 'The Team',
+                list: [
+                    'Specialized team with roles including Lead Graphics Designer, UI/UX Designer, Copywriters',
+                    'Financial alignment via 4-year vesting schedule with 1-year cliff for team allocation'
+                ]
+            },
+            {
+                title: 'The Ask: $1 Million to Scale Vision',
+                list: [
+                    '<strong>40% - Technology & Security Scalability:</strong> Smart contract audit, AWS infrastructure, Ziver-Chain development',
+                    '<strong>30% - Strategic Talent Acquisition:</strong> Core engineers and Head of Growth',
+                    '<strong>20% - Go-To-Market & User Acquisition:</strong> Marketing campaigns, KOL partnerships, first 10,000 users',
+                    '<strong>10% - Legal & Operational Runway:</strong> Regulatory compliance and financial buffer'
+                ]
+            }
+        ]
+    }
+];
 
 // Initialize database tables
 async function initializeDatabase() {
@@ -39,13 +178,6 @@ async function initializeDatabase() {
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-
-        // Insert default slides if empty
-        const slideCount = await pool.query('SELECT COUNT(*) FROM slides');
-        if (parseInt(slideCount.rows[0].count) === 0) {
-            console.log('Inserting default slides...');
-            // You can initialize with your default content here
-        }
 
         console.log('Database initialized successfully');
     } catch (error) {
@@ -111,16 +243,83 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-// Slides management
+// Slides management - FIXED: Always return slides, merge database edits with default content
 app.get('/api/slides', async (req, res) => {
     try {
         const result = await pool.query(
             'SELECT * FROM slides ORDER BY slide_order'
         );
-        res.json(result.rows);
+        
+        const dbSlides = result.rows;
+        
+        // If no slides in database, return default slides
+        if (dbSlides.length === 0) {
+            console.log('No slides in database, returning default slides');
+            return res.json(defaultSlidesData.map((slide, index) => ({
+                id: index,
+                slide_order: index,
+                title: slide.title || `Slide ${index + 1}`,
+                content: slide,
+                image_url: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            })));
+        }
+
+        // Merge database slides with default slides
+        const mergedSlides = defaultSlidesData.map((defaultSlide, index) => {
+            const dbSlide = dbSlides.find(slide => slide.slide_order === index);
+            
+            if (dbSlide && dbSlide.content) {
+                // Use database content but ensure we have all required fields
+                const mergedContent = {
+                    ...defaultSlide, // Start with default
+                    ...dbSlide.content, // Override with database content
+                    // Ensure we preserve the structure
+                    title: dbSlide.content.title || defaultSlide.title,
+                    sections: dbSlide.content.sections || defaultSlide.sections,
+                    visual: dbSlide.content.visual || defaultSlide.visual
+                };
+                
+                return {
+                    id: dbSlide.id,
+                    slide_order: index,
+                    title: dbSlide.title,
+                    content: mergedContent,
+                    image_url: dbSlide.image_url,
+                    created_at: dbSlide.created_at,
+                    updated_at: dbSlide.updated_at
+                };
+            }
+            
+            // No database entry for this slide, use default
+            return {
+                id: index,
+                slide_order: index,
+                title: defaultSlide.title || `Slide ${index + 1}`,
+                content: defaultSlide,
+                image_url: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+        });
+
+        console.log(`Returning ${mergedSlides.length} slides (${dbSlides.length} from database)`);
+        res.json(mergedSlides);
+
     } catch (error) {
         console.error('Fetch slides error:', error);
-        res.status(500).json({ error: 'Failed to fetch slides' });
+        // Fallback to default slides on error
+        console.log('Database error, falling back to default slides');
+        res.json(defaultSlidesData.map((slide, index) => ({
+            id: index,
+            slide_order: index,
+            title: slide.title || `Slide ${index + 1}`,
+            content: slide,
+            image_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        })));
     }
 });
 
@@ -129,15 +328,33 @@ app.put('/api/slides/:id', async (req, res) => {
         const { id } = req.params;
         const { title, content, image_url } = req.body;
 
-        const result = await pool.query(
-            `UPDATE slides 
-             SET title = $1, content = $2, image_url = $3, updated_at = CURRENT_TIMESTAMP 
-             WHERE id = $4 
-             RETURNING *`,
-            [title, content, image_url, id]
+        // Check if slide exists
+        const existingSlide = await pool.query(
+            'SELECT * FROM slides WHERE slide_order = $1',
+            [id]
         );
 
-        res.json({ success: true, slide: result.rows[0] });
+        if (existingSlide.rows.length > 0) {
+            // Update existing slide
+            const result = await pool.query(
+                `UPDATE slides 
+                 SET title = $1, content = $2, image_url = $3, updated_at = CURRENT_TIMESTAMP 
+                 WHERE slide_order = $4 
+                 RETURNING *`,
+                [title, content, image_url, id]
+            );
+            res.json({ success: true, slide: result.rows[0] });
+        } else {
+            // Insert new slide
+            const result = await pool.query(
+                `INSERT INTO slides (slide_order, title, content, image_url) 
+                 VALUES ($1, $2, $3, $4) 
+                 RETURNING *`,
+                [id, title, content, image_url]
+            );
+            res.json({ success: true, slide: result.rows[0] });
+        }
+
     } catch (error) {
         console.error('Update slide error:', error);
         res.status(500).json({ error: 'Failed to update slide' });
@@ -149,39 +366,32 @@ app.post('/api/slides/:id/image', async (req, res) => {
         const { id } = req.params;
         const { imageUrl } = req.body;
 
-        const result = await pool.query(
-            'UPDATE slides SET image_url = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
-            [imageUrl, id]
+        // Check if slide exists
+        const existingSlide = await pool.query(
+            'SELECT * FROM slides WHERE slide_order = $1',
+            [id]
         );
 
-        res.json({ success: true, slide: result.rows[0] });
+        if (existingSlide.rows.length > 0) {
+            // Update existing slide
+            const result = await pool.query(
+                'UPDATE slides SET image_url = $1, updated_at = CURRENT_TIMESTAMP WHERE slide_order = $2 RETURNING *',
+                [imageUrl, id]
+            );
+            res.json({ success: true, slide: result.rows[0] });
+        } else {
+            // Insert new slide with image
+            const defaultSlide = defaultSlidesData[id] || { title: `Slide ${parseInt(id) + 1}` };
+            const result = await pool.query(
+                'INSERT INTO slides (slide_order, title, content, image_url) VALUES ($1, $2, $3, $4) RETURNING *',
+                [id, defaultSlide.title, defaultSlide, imageUrl]
+            );
+            res.json({ success: true, slide: result.rows[0] });
+        }
+
     } catch (error) {
         console.error('Update image error:', error);
         res.status(500).json({ error: 'Failed to update image' });
-    }
-});
-
-// Initialize slides with default content
-app.post('/api/slides/initialize', async (req, res) => {
-    try {
-        const { slidesData } = req.body;
-        
-        // Clear existing slides
-        await pool.query('DELETE FROM slides');
-        
-        // Insert new slides
-        for (let i = 0; i < slidesData.length; i++) {
-            const slide = slidesData[i];
-            await pool.query(
-                'INSERT INTO slides (slide_order, title, content) VALUES ($1, $2, $3)',
-                [i, slide.title || `Slide ${i + 1}`, slide]
-            );
-        }
-        
-        res.json({ success: true, message: 'Slides initialized' });
-    } catch (error) {
-        console.error('Initialize slides error:', error);
-        res.status(500).json({ error: 'Failed to initialize slides' });
     }
 });
 
@@ -194,5 +404,6 @@ app.get('*', (req, res) => {
 initializeDatabase().then(() => {
     app.listen(port, () => {
         console.log(`Ziver pitch deck running at http://localhost:${port}`);
+        console.log('Database integration: Edits will be saved, default content always available');
     });
 });
