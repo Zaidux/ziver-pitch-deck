@@ -1,4 +1,4 @@
-// js/script.js - UPDATED WITH DELETE FUNCTIONALITY AND FIXED IMAGE PERSISTENCE
+// js/script.js - FIXED RELOAD SLIDE ISSUE
 document.addEventListener('DOMContentLoaded', function() {
     // Elements
     const slideNav = document.getElementById('slideNav');
@@ -143,6 +143,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         slidesContainer.appendChild(slide);
+        return slide; // FIX: Return the created slide element
 
         // Create navigation item
         if (navItemsContainer) {
@@ -403,8 +404,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await response.json();
 
             if (result.success) {
-                // Reload the slide to show the new image and delete button
-                await reloadSlide(slideOrder);
+                // Update the visual placeholder directly instead of reloading
+                updateSlideImage(slideOrder, imageUrl);
                 console.log('Image saved successfully');
             } else {
                 alert('Failed to save image: ' + (result.error || 'Unknown error'));
@@ -412,6 +413,25 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error saving image:', error);
             alert('Error saving image: ' + error.message);
+        }
+    }
+
+    // FIXED: Direct update instead of complex reload
+    function updateSlideImage(slideOrder, imageUrl) {
+        const slide = slides[slideOrder];
+        if (!slide) return;
+
+        const visualPlaceholder = slide.querySelector('.visual-placeholder');
+        if (visualPlaceholder) {
+            visualPlaceholder.classList.add('has-image');
+            visualPlaceholder.innerHTML = `
+                <img src="${imageUrl}" alt="Slide image" style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-lg);">
+                ${editMode ? `
+                <div class="image-delete-btn" data-slide-order="${slideOrder}" title="Delete image">
+                    <span>×</span>
+                </div>
+                ` : ''}
+            `;
         }
     }
 
@@ -427,8 +447,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await response.json();
 
             if (result.success) {
-                // Reload the slide to show the upload button
-                await reloadSlide(slideOrder);
+                // Update the visual placeholder directly
+                removeSlideImage(slideOrder);
                 console.log('Image deleted successfully');
             } else {
                 alert('Failed to delete image: ' + (result.error || 'Unknown error'));
@@ -443,34 +463,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    async function reloadSlide(slideOrder) {
-        try {
-            // Reload all slides from server
-            const response = await fetch('/api/slides');
-            if (response.ok) {
-                const slidesData = await response.json();
-                const slideData = slidesData[slideOrder];
-                
-                if (slideData) {
-                    // Recreate the slide element
-                    const slide = slides[slideOrder];
-                    const newSlide = createSlideElement(slideData, slideOrder);
-                    slide.parentNode.replaceChild(newSlide, slide);
-                    
-                    // Update slides reference
-                    slides = document.querySelectorAll('.slide');
-                    
-                    // Reactivate current slide if needed
-                    if (window.currentSlide == slideOrder) {
-                        goToSlide(window.currentSlide);
-                    }
-                    
-                    // Update buttons for edit mode
-                    updateImageButtons();
-                }
-            }
-        } catch (error) {
-            console.error('Error reloading slide:', error);
+    // FIXED: Direct removal instead of complex reload
+    function removeSlideImage(slideOrder) {
+        const slide = slides[slideOrder];
+        if (!slide) return;
+
+        const visualPlaceholder = slide.querySelector('.visual-placeholder');
+        if (visualPlaceholder) {
+            visualPlaceholder.classList.remove('has-image');
+            const content = window.slidesData?.[slideOrder] || {};
+            visualPlaceholder.innerHTML = `
+                ${content.visual || 'Image placeholder'}
+                ${editMode ? `
+                <div class="image-upload-btn" data-slide-order="${slideOrder}">
+                    <span>+</span>
+                    <input type="file" accept="image/*" style="display: none;">
+                </div>
+                ` : ''}
+            `;
         }
     }
 
@@ -588,7 +598,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (exportModal) exportModal.classList.remove('active');
         });
-    });
+    }
 
     // Toggle edit mode
     if (editToggle) {
